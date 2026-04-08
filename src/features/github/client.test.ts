@@ -10,8 +10,17 @@ import {
   InvalidRepoFormatError
 } from '../../shared/errors.ts'
 
-function createResponse (status: number) {
-  return new Response(null, { status })
+function createResponse (
+  status: number,
+  options: {
+    body?: string
+    headers?: Record<string, string>
+  } = {}
+) {
+  return new Response(options.body ?? null, {
+    headers: options.headers,
+    status
+  })
 }
 
 describe('parseRepoRef', () => {
@@ -69,6 +78,66 @@ describe('createGitHubClient', () => {
     })
 
     await expect(client.assertRepositoryExists('openai/openai-node')).rejects.toBeInstanceOf(
+      GitHubRateLimitedError
+    )
+  })
+
+  it('returns the latest release tag when a release exists', async () => {
+    const client = createGitHubClient({
+      fetch: vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200, {
+        body: JSON.stringify({
+          tag_name: 'v2.0.0'
+        }),
+        headers: {
+          'content-type': 'application/json'
+        }
+      })))
+    })
+
+    await expect(client.getLatestReleaseTag('openai/openai-node')).resolves.toBe('v2.0.0')
+  })
+
+  it('returns null when the repository exists but has no releases yet', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(createResponse(404))
+      .mockResolvedValueOnce(createResponse(200))
+    const client = createGitHubClient({
+      fetch: fetchMock
+    })
+
+    await expect(client.getLatestReleaseTag('openai/openai-node')).resolves.toBeNull()
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://api.github.com/repos/openai/openai-node/releases/latest',
+      expect.any(Object)
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://api.github.com/repos/openai/openai-node',
+      expect.any(Object)
+    )
+  })
+
+  it('maps missing repositories during latest-release lookup to a typed error', async () => {
+    const client = createGitHubClient({
+      fetch: vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(createResponse(404))
+        .mockResolvedValueOnce(createResponse(404))
+    })
+
+    await expect(client.getLatestReleaseTag('openai/missing')).rejects.toBeInstanceOf(
+      GitHubRepositoryNotFoundError
+    )
+  })
+
+  it('maps rate-limit responses during latest-release lookup to a typed error', async () => {
+    const client = createGitHubClient({
+      fetch: vi.fn<typeof fetch>(() => Promise.resolve(createResponse(429)))
+    })
+
+    await expect(client.getLatestReleaseTag('openai/openai-node')).rejects.toBeInstanceOf(
       GitHubRateLimitedError
     )
   })

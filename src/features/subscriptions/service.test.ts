@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import type { GitHubClient } from '../github/client.ts'
 import type { SubscriptionRepository } from './repository.ts'
 import { createSubscriptionService } from './service.ts'
 import {
@@ -12,6 +13,13 @@ import {
 
 function createResolvedVoidMock () {
   return vi.fn(() => Promise.resolve())
+}
+
+function createGitHubClientStub (): GitHubClient {
+  return {
+    assertRepositoryExists: createResolvedVoidMock(),
+    getLatestReleaseTag: vi.fn(() => Promise.resolve(null))
+  }
 }
 
 function createRepositoryMock (): SubscriptionRepository {
@@ -49,11 +57,10 @@ describe('createSubscriptionService', () => {
     repository.findActiveSubscription = vi.fn(() => Promise.resolve({
       id: 'existing-subscription'
     }))
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -70,7 +77,7 @@ describe('createSubscriptionService', () => {
 
   it('creates a pending subscription and sends a confirmation email', async () => {
     const repository = createRepositoryMock()
-    const assertRepositoryExists = createResolvedVoidMock()
+    const githubClient = createGitHubClientStub()
     const sendConfirmationEmail = createResolvedVoidMock()
     const generateToken = vi
       .fn<() => string>()
@@ -80,9 +87,7 @@ describe('createSubscriptionService', () => {
 
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail,
         sendReleaseEmail: createResolvedVoidMock()
@@ -96,7 +101,7 @@ describe('createSubscriptionService', () => {
       repo: ' openai/openai-node '
     })
 
-    expect(assertRepositoryExists).toHaveBeenCalledWith('openai/openai-node')
+    expect(githubClient.assertRepositoryExists).toHaveBeenCalledWith('openai/openai-node')
     expect(repository.findActiveSubscription).toHaveBeenCalledWith('user@example.com', 'openai/openai-node')
     expect(repository.ensureRepository).toHaveBeenCalledWith('openai/openai-node')
     expect(repository.insertPendingSubscription).toHaveBeenCalledWith({
@@ -116,13 +121,13 @@ describe('createSubscriptionService', () => {
 
   it('surfaces GitHub not-found errors', async () => {
     const repository = createRepositoryMock()
+    const githubClient = createGitHubClientStub()
+    githubClient.assertRepositoryExists = vi.fn(() => Promise.reject(
+      new GitHubRepositoryNotFoundError('openai/missing')
+    ))
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: vi.fn(() => Promise.reject(
-          new GitHubRepositoryNotFoundError('openai/missing')
-        ))
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -139,11 +144,11 @@ describe('createSubscriptionService', () => {
 
   it('surfaces GitHub rate-limit errors', async () => {
     const repository = createRepositoryMock()
+    const githubClient = createGitHubClientStub()
+    githubClient.assertRepositoryExists = vi.fn(() => Promise.reject(new GitHubRateLimitedError()))
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: vi.fn(() => Promise.reject(new GitHubRateLimitedError()))
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -160,11 +165,10 @@ describe('createSubscriptionService', () => {
 
   it('rejects invalid confirmation tokens before querying the repository', async () => {
     const repository = createRepositoryMock()
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -182,11 +186,10 @@ describe('createSubscriptionService', () => {
 
   it('returns 404 when the confirmation token is valid but missing', async () => {
     const repository = createRepositoryMock()
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -207,11 +210,10 @@ describe('createSubscriptionService', () => {
       confirmedAt: null,
       id: 'subscription-id'
     }))
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -238,11 +240,10 @@ describe('createSubscriptionService', () => {
         confirmedAt: new Date('2026-04-08T00:00:00.000Z'),
         id: 'subscription-id'
       })
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -262,11 +263,10 @@ describe('createSubscriptionService', () => {
       ...createRepositoryMock(),
       getSubscriptionsByEmail: vi.fn(() => Promise.resolve(listedSubscriptions))
     }
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -284,11 +284,10 @@ describe('createSubscriptionService', () => {
 
   it('rejects invalid unsubscribe tokens before querying the repository', async () => {
     const repository = createRepositoryMock()
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -306,11 +305,10 @@ describe('createSubscriptionService', () => {
 
   it('returns 404 when the unsubscribe token is valid but missing', async () => {
     const repository = createRepositoryMock()
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
@@ -330,11 +328,10 @@ describe('createSubscriptionService', () => {
     repository.findByUnsubscribeToken = vi.fn(() => Promise.resolve({
       id: 'subscription-id'
     }))
+    const githubClient = createGitHubClientStub()
     const service = createSubscriptionService({
       repository,
-      githubClient: {
-        assertRepositoryExists: createResolvedVoidMock()
-      },
+      githubClient,
       mailer: {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()

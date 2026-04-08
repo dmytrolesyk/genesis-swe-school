@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { buildApp } from './app.ts'
+import type { ReleaseScheduler } from './features/releases/scheduler.ts'
 import { InvalidRepoFormatError } from './shared/errors.ts'
 
 describe('buildApp', () => {
@@ -54,5 +55,27 @@ describe('buildApp', () => {
       statusCode: 400,
       error: 'INVALID_REPO_FORMAT'
     })
+  })
+
+  it('starts and stops the release scheduler with the app lifecycle', async () => {
+    const scheduler: ReleaseScheduler = {
+      start: vi.fn(),
+      stop: vi.fn()
+    }
+
+    app = buildApp({}, {
+      releases: {
+        scheduler
+      }
+    })
+
+    await app.ready()
+
+    expect(scheduler.start).toHaveBeenCalledTimes(1)
+
+    await app.close()
+    app = undefined
+
+    expect(scheduler.stop).toHaveBeenCalledTimes(1)
   })
 })

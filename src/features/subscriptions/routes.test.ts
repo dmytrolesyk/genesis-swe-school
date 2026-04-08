@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { buildApp } from '../../app.ts'
+import type { GitHubClient } from '../github/client.ts'
 import type { SubscriptionService } from './service.ts'
 import {
   GitHubRepositoryNotFoundError,
@@ -17,6 +18,13 @@ type PendingSubscription = {
 
 function createResolvedVoidMock () {
   return vi.fn(() => Promise.resolve())
+}
+
+function createGitHubClientStub (): GitHubClient {
+  return {
+    assertRepositoryExists: createResolvedVoidMock(),
+    getLatestReleaseTag: vi.fn(() => Promise.resolve(null))
+  }
 }
 
 function createServiceStub (): SubscriptionService {
@@ -80,11 +88,10 @@ describe('POST /api/subscribe', () => {
   })
 
   it('returns 400 for invalid request bodies', async () => {
+    const githubClient = createGitHubClientStub()
     const app = buildApp({}, {
       subscriptions: {
-        githubClient: {
-          assertRepositoryExists: createResolvedVoidMock()
-        },
+        githubClient,
         mailer: {
           sendConfirmationEmail: createResolvedVoidMock(),
           sendReleaseEmail: createResolvedVoidMock()
@@ -110,11 +117,10 @@ describe('POST /api/subscribe', () => {
 
   it('returns 400 for invalid repo format', async () => {
     const repository = createRepositoryStub()
+    const githubClient = createGitHubClientStub()
     const app = buildApp({}, {
       subscriptions: {
-        githubClient: {
-          assertRepositoryExists: createResolvedVoidMock()
-        },
+        githubClient,
         mailer: {
           sendConfirmationEmail: createResolvedVoidMock(),
           sendReleaseEmail: createResolvedVoidMock()
@@ -142,13 +148,13 @@ describe('POST /api/subscribe', () => {
 
   it('returns 404 when GitHub reports the repository is missing', async () => {
     const repository = createRepositoryStub()
+    const githubClient = createGitHubClientStub()
+    githubClient.assertRepositoryExists = vi.fn(() => Promise.reject(
+      new GitHubRepositoryNotFoundError('openai/missing')
+    ))
     const app = buildApp({}, {
       subscriptions: {
-        githubClient: {
-          assertRepositoryExists: vi.fn(() => Promise.reject(
-            new GitHubRepositoryNotFoundError('openai/missing')
-          ))
-        },
+        githubClient,
         mailer: {
           sendConfirmationEmail: createResolvedVoidMock(),
           sendReleaseEmail: createResolvedVoidMock()
@@ -176,12 +182,11 @@ describe('POST /api/subscribe', () => {
   it('returns 409 for duplicate subscriptions', async () => {
     const repository = createRepositoryStub()
     repository.state.activeSubscriptions.add('user@example.com:openai/openai-node')
+    const githubClient = createGitHubClientStub()
 
     const app = buildApp({}, {
       subscriptions: {
-        githubClient: {
-          assertRepositoryExists: createResolvedVoidMock()
-        },
+        githubClient,
         mailer: {
           sendConfirmationEmail: createResolvedVoidMock(),
           sendReleaseEmail: createResolvedVoidMock()
@@ -208,12 +213,11 @@ describe('POST /api/subscribe', () => {
 
   it('returns 200 for successful subscriptions', async () => {
     const repository = createRepositoryStub()
+    const githubClient = createGitHubClientStub()
     const sendConfirmationEmail = createResolvedVoidMock()
     const app = buildApp({}, {
       subscriptions: {
-        githubClient: {
-          assertRepositoryExists: createResolvedVoidMock()
-        },
+        githubClient,
         mailer: {
           sendConfirmationEmail,
           sendReleaseEmail: createResolvedVoidMock()
