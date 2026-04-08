@@ -1,6 +1,7 @@
 import closeWithGrace from 'close-with-grace'
 
 import { buildApp } from './app.ts'
+import { runMigrations } from './db/migrate.ts'
 
 function readPort () {
   const port = Number.parseInt(process.env.PORT ?? '3000', 10)
@@ -10,10 +11,6 @@ function readPort () {
   }
 
   return port
-}
-
-async function runStartupMigrations () {
-  // Wired to the real migration runner in Task 2.
 }
 
 async function startServer () {
@@ -29,7 +26,10 @@ async function startServer () {
     await app.close()
   })
 
-  await runStartupMigrations()
+  await app.ready()
+  await runMigrations({
+    pool: app.pg
+  })
   await app.listen({
     host: process.env.HOST ?? '0.0.0.0',
     port: readPort()
