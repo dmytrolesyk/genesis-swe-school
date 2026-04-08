@@ -23,7 +23,10 @@ import {
   createSubscriptionService,
   type SubscriptionService
 } from './service.ts'
-import { subscribeResponseSchema } from './schemas.ts'
+import {
+  confirmResponseSchema,
+  subscribeResponseSchema
+} from './schemas.ts'
 
 export type SubscriptionRoutesOptions = FastifyPluginOptions & {
   githubClient?: GitHubClient
@@ -60,6 +63,13 @@ const subscriptionsRoutesPlugin: FastifyPluginCallback<SubscriptionRoutesOptions
     schema: subscribeResponseSchema
   }, async (request, reply) => {
     await service.subscribe(request.body)
+    return reply.code(200).send({})
+  })
+
+  app.get('/confirm/:token', {
+    schema: confirmResponseSchema
+  }, async (request, reply) => {
+    await service.confirmSubscription(request.params.token)
     return reply.code(200).send({})
   })
 

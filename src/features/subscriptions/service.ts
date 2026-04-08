@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto'
 import type { GitHubClient } from '../github/client.ts'
 import { parseRepoRef } from '../github/repo-ref.ts'
 import type { Mailer } from '../../infra/email/mailer.ts'
-import { DuplicateSubscriptionError } from '../../shared/errors.ts'
+import {
+  DuplicateSubscriptionError,
+  InvalidTokenError,
+  TokenNotFoundError
+} from '../../shared/errors.ts'
 import type {
   PendingSubscription,
   SubscriptionRepository
@@ -15,6 +19,7 @@ export type SubscribeInput = {
 }
 
 export type SubscriptionService = {
+  confirmSubscription: (token: string) => Promise<void>
   subscribe: (input: SubscribeInput) => Promise<void>
 }
 
@@ -40,12 +45,36 @@ function buildPendingSubscription (
   }
 }
 
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function assertValidToken (token: string) {
+  if (!uuidPattern.test(token)) {
+    throw new InvalidTokenError(token)
+  }
+}
+
 export function createSubscriptionService (
   options: CreateSubscriptionServiceOptions
 ): SubscriptionService {
   const generateToken = options.generateToken ?? randomUUID
 
   return {
+    async confirmSubscription (token) {
+      assertValidToken(token)
+
+      const subscription = await options.repository.findByConfirmToken(token)
+
+      if (subscription === null) {
+        throw new TokenNotFoundError()
+      }
+
+      if (subscription.confirmedAt !== null) {
+        return
+      }
+
+      await options.repository.confirmSubscription(subscription.id)
+    },
     async subscribe (input) {
       const parsedRepo = parseRepoRef(input.repo)
       await options.githubClient.assertRepositoryExists(parsedRepo.repoFullName)

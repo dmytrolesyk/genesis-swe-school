@@ -4,6 +4,11 @@ export type ActiveSubscription = {
   id: string
 }
 
+export type ConfirmableSubscription = {
+  confirmedAt: Date | null
+  id: string
+}
+
 export type PendingSubscription = {
   confirmToken: string
   email: string
@@ -18,10 +23,17 @@ export type SubscriptionRepository = {
     email: string,
     repoFullName: string
   ) => Promise<ActiveSubscription | null>
+  findByConfirmToken: (token: string) => Promise<ConfirmableSubscription | null>
+  confirmSubscription: (id: string) => Promise<void>
   insertPendingSubscription: (subscription: PendingSubscription) => Promise<void>
 }
 
 type ActiveSubscriptionRow = {
+  id: string
+}
+
+type ConfirmableSubscriptionRow = {
+  confirmed_at: Date | null
   id: string
 }
 
@@ -49,6 +61,36 @@ export function createSubscriptionRepository (
       )
 
       return result.rows[0] ?? null
+    },
+    async findByConfirmToken (token) {
+      const result = await pool.query<ConfirmableSubscriptionRow>(
+        `SELECT id, confirmed_at
+         FROM subscriptions
+         WHERE confirm_token = $1
+           AND unsubscribed_at IS NULL
+         LIMIT 1`,
+        [token]
+      )
+
+      if (result.rows.length === 0) {
+        return null
+      }
+
+      const row = result.rows[0]
+
+      return {
+        confirmedAt: row.confirmed_at,
+        id: row.id
+      }
+    },
+    async confirmSubscription (id) {
+      await pool.query(
+        `UPDATE subscriptions
+         SET confirmed_at = COALESCE(confirmed_at, now()),
+             updated_at = now()
+         WHERE id = $1`,
+        [id]
+      )
     },
     async insertPendingSubscription (subscription) {
       await pool.query(

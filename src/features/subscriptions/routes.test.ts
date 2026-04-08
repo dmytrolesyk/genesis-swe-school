@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { buildApp } from '../../app.ts'
-import { GitHubRepositoryNotFoundError } from '../../shared/errors.ts'
+import {
+  GitHubRepositoryNotFoundError,
+  TokenNotFoundError
+} from '../../shared/errors.ts'
 
 type PendingSubscription = {
   confirmToken: string
@@ -15,6 +18,8 @@ function createResolvedVoidMock () {
   return vi.fn(() => Promise.resolve())
 }
 
+const validToken = '00000000-0000-4000-8000-000000000001'
+
 function createRepositoryStub () {
   const activeSubscriptions = new Set<string>()
   const pendingSubscriptions: PendingSubscription[] = []
@@ -25,12 +30,14 @@ function createRepositoryStub () {
       pendingSubscriptions
     },
     implementation: {
+      confirmSubscription: createResolvedVoidMock(),
       ensureRepository: createResolvedVoidMock(),
       findActiveSubscription: vi.fn((email: string, repoFullName: string) => {
         return activeSubscriptions.has(`${email}:${repoFullName}`)
           ? Promise.resolve({ id: `${email}:${repoFullName}` })
           : Promise.resolve(null)
       }),
+      findByConfirmToken: vi.fn(() => Promise.resolve(null)),
       insertPendingSubscription: vi.fn((subscription: PendingSubscription) => {
         pendingSubscriptions.push(subscription)
         return Promise.resolve()
@@ -201,6 +208,112 @@ describe('POST /api/subscribe', () => {
     expect(response.statusCode).toBe(200)
     expect(repository.state.pendingSubscriptions).toHaveLength(1)
     expect(sendConfirmationEmail).toHaveBeenCalledTimes(1)
+
+    await app.close()
+  })
+})
+
+describe('GET /api/confirm/:token', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns 400 for invalid token shapes', async () => {
+    const confirmSubscription = createResolvedVoidMock()
+    const service = {
+      confirmSubscription,
+      subscribe: createResolvedVoidMock()
+    }
+    const app = buildApp({}, {
+      subscriptions: {
+        service
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/confirm/not-a-uuid'
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(confirmSubscription).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
+  it('returns 404 for unknown confirmation tokens', async () => {
+    const app = buildApp({}, {
+      subscriptions: {
+        service: {
+          confirmSubscription: vi.fn(() => Promise.reject(new TokenNotFoundError())),
+          subscribe: createResolvedVoidMock()
+        }
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/confirm/${validToken}`
+    })
+
+    expect(response.statusCode).toBe(404)
+
+    await app.close()
+  })
+
+  it('returns 200 when a subscription is confirmed', async () => {
+    const confirmSubscription = createResolvedVoidMock()
+    const app = buildApp({}, {
+      subscriptions: {
+        service: {
+          confirmSubscription,
+          subscribe: createResolvedVoidMock()
+        }
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/confirm/${validToken}`
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(confirmSubscription).toHaveBeenCalledWith(validToken)
+
+    await app.close()
+  })
+
+  it('keeps repeated confirmation predictable', async () => {
+    const confirmSubscription = createResolvedVoidMock()
+    const app = buildApp({}, {
+      subscriptions: {
+        service: {
+          confirmSubscription,
+          subscribe: createResolvedVoidMock()
+        }
+      }
+    })
+
+    await app.ready()
+
+    const firstResponse = await app.inject({
+      method: 'GET',
+      url: `/api/confirm/${validToken}`
+    })
+    const secondResponse = await app.inject({
+      method: 'GET',
+      url: `/api/confirm/${validToken}`
+    })
+
+    expect(firstResponse.statusCode).toBe(200)
+    expect(secondResponse.statusCode).toBe(200)
+    expect(confirmSubscription).toHaveBeenCalledTimes(2)
 
     await app.close()
   })

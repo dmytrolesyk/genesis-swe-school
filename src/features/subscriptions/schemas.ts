@@ -9,6 +9,23 @@ export const subscribeBodySchema = Type.Object({
   additionalProperties: false
 })
 
+export const confirmParamsSchema = Type.Object({
+  token: Type.String({
+    format: 'uuid'
+  })
+}, {
+  additionalProperties: false
+})
+
+export const confirmResponseSchema = {
+  params: confirmParamsSchema,
+  response: {
+    200: Type.Object({}),
+    400: httpErrorSchema,
+    404: httpErrorSchema
+  }
+}
+
 export const subscribeResponseSchema = {
   body: subscribeBodySchema,
   response: {
