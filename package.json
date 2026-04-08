@@ -1,0 +1,43 @@
+{
+  "name": "sfe-school",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prepare": "lefthook install",
+    "start": "node src/server.ts",
+    "dev": "node --watch src/server.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:staged": "lint-staged",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "packageManager": "pnpm@10.24.0",
+  "type": "module",
+  "dependencies": {
+    "@fastify/postgres": "^6.0.2",
+    "@fastify/sensible": "^6.0.4",
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@sinclair/typebox": "^0.34.49",
+    "close-with-grace": "^2.5.0",
+    "env-schema": "^7.0.0",
+    "fastify": "^5.8.4",
+    "fastify-plugin": "^5.1.0",
+    "nodemailer": "^8.0.5",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "eslint": "^9.39.4",
+    "lefthook": "^2.1.5",
+    "lint-staged": "^16.4.0",
+    "neostandard": "^0.13.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1",
+    "vitest": "^4.1.3"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,mts,cts}": "eslint --fix"
+  }
+}
