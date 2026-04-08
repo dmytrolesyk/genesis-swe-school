@@ -23,6 +23,7 @@ export type SubscriptionService = {
   confirmSubscription: (token: string) => Promise<void>
   getSubscriptionsByEmail: (email: string) => Promise<ListedSubscription[]>
   subscribe: (input: SubscribeInput) => Promise<void>
+  unsubscribe: (token: string) => Promise<void>
 }
 
 type CreateSubscriptionServiceOptions = {
@@ -108,6 +109,17 @@ export function createSubscriptionService (
         repoFullName: pendingSubscription.repoFullName,
         unsubscribeUrl: `${options.appBaseUrl}/api/unsubscribe/${pendingSubscription.unsubscribeToken}`
       })
+    },
+    async unsubscribe (token) {
+      assertValidToken(token)
+
+      const subscription = await options.repository.findByUnsubscribeToken(token)
+
+      if (subscription === null) {
+        throw new TokenNotFoundError()
+      }
+
+      await options.repository.unsubscribe(subscription.id)
     }
   }
 }

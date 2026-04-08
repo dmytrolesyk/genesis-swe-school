@@ -23,11 +23,13 @@ function createServiceStub (): SubscriptionService {
   return {
     confirmSubscription: createResolvedVoidMock(),
     getSubscriptionsByEmail: vi.fn(() => Promise.resolve([])),
-    subscribe: createResolvedVoidMock()
+    subscribe: createResolvedVoidMock(),
+    unsubscribe: createResolvedVoidMock()
   }
 }
 
 const validToken = '00000000-0000-4000-8000-000000000001'
+const secondValidToken = '00000000-0000-4000-8000-000000000002'
 const listedSubscriptions = [
   {
     confirmed: true,
@@ -61,11 +63,13 @@ function createRepositoryStub () {
           : Promise.resolve(null)
       }),
       findByConfirmToken: vi.fn(() => Promise.resolve(null)),
+      findByUnsubscribeToken: vi.fn(() => Promise.resolve(null)),
       getSubscriptionsByEmail: vi.fn(() => Promise.resolve([])),
       insertPendingSubscription: vi.fn((subscription: PendingSubscription) => {
         pendingSubscriptions.push(subscription)
         return Promise.resolve()
-      })
+      }),
+      unsubscribe: createResolvedVoidMock()
     }
   }
 }
@@ -377,6 +381,133 @@ describe('GET /api/subscriptions', () => {
     expect(response.statusCode).toBe(200)
     expect(response.json()).toEqual(listedSubscriptions)
     expect(service.getSubscriptionsByEmail).toHaveBeenCalledWith('user@example.com')
+
+    await app.close()
+  })
+})
+
+describe('GET /api/unsubscribe/:token', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns 400 for invalid token shapes', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      subscriptions: {
+        service
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/unsubscribe/not-a-uuid'
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(service.unsubscribe).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
+  it('returns 404 for unknown unsubscribe tokens', async () => {
+    const service = createServiceStub()
+    service.unsubscribe = vi.fn(() => Promise.reject(new TokenNotFoundError()))
+    const app = buildApp({}, {
+      subscriptions: {
+        service
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/unsubscribe/${validToken}`
+    })
+
+    expect(response.statusCode).toBe(404)
+
+    await app.close()
+  })
+
+  it('returns 200 when a subscription is unsubscribed', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      subscriptions: {
+        service
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/unsubscribe/${validToken}`
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(service.unsubscribe).toHaveBeenCalledWith(validToken)
+
+    await app.close()
+  })
+
+  it('removes unsubscribed records from subscription lookups', async () => {
+    const subscriptions = [
+      {
+        confirmed: true,
+        email: 'user@example.com',
+        last_seen_tag: 'v1.0.0',
+        repo: 'openai/openai-node',
+        token: secondValidToken
+      }
+    ]
+    const service = createServiceStub() as SubscriptionService & {
+      unsubscribe: (token: string) => Promise<void>
+    }
+
+    service.unsubscribe = vi.fn((token: string) => {
+      const subscriptionIndex = subscriptions.findIndex((subscription) => {
+        return subscription.token === token
+      })
+
+      if (subscriptionIndex === -1) {
+        throw new TokenNotFoundError()
+      }
+
+      subscriptions.splice(subscriptionIndex, 1)
+      return Promise.resolve()
+    })
+    service.getSubscriptionsByEmail = vi.fn((email: string) => {
+      return Promise.resolve(
+        subscriptions
+          .filter((subscription) => subscription.email === email)
+          .map(({ token: _token, ...subscription }) => subscription)
+      )
+    })
+
+    const app = buildApp({}, {
+      subscriptions: {
+        service
+      }
+    })
+
+    await app.ready()
+
+    const unsubscribeResponse = await app.inject({
+      method: 'GET',
+      url: `/api/unsubscribe/${secondValidToken}`
+    })
+    const subscriptionsResponse = await app.inject({
+      method: 'GET',
+      url: '/api/subscriptions?email=user@example.com'
+    })
+
+    expect(unsubscribeResponse.statusCode).toBe(200)
+    expect(subscriptionsResponse.statusCode).toBe(200)
+    expect(subscriptionsResponse.json()).toEqual([])
 
     await app.close()
   })

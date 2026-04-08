@@ -20,8 +20,10 @@ function createRepositoryMock (): SubscriptionRepository {
     ensureRepository: createResolvedVoidMock(),
     findActiveSubscription: vi.fn(() => Promise.resolve(null)),
     findByConfirmToken: vi.fn(() => Promise.resolve(null)),
+    findByUnsubscribeToken: vi.fn(() => Promise.resolve(null)),
     getSubscriptionsByEmail: vi.fn(() => Promise.resolve([])),
-    insertPendingSubscription: createResolvedVoidMock()
+    insertPendingSubscription: createResolvedVoidMock(),
+    unsubscribe: createResolvedVoidMock()
   }
 }
 
@@ -278,5 +280,74 @@ describe('createSubscriptionService', () => {
       listedSubscriptions
     )
     expect(repository.getSubscriptionsByEmail).toHaveBeenCalledWith('user@example.com')
+  })
+
+  it('rejects invalid unsubscribe tokens before querying the repository', async () => {
+    const repository = createRepositoryMock()
+    const service = createSubscriptionService({
+      repository,
+      githubClient: {
+        assertRepositoryExists: createResolvedVoidMock()
+      },
+      mailer: {
+        sendConfirmationEmail: createResolvedVoidMock(),
+        sendReleaseEmail: createResolvedVoidMock()
+      },
+      appBaseUrl: 'http://localhost:3000'
+    }) as ReturnType<typeof createSubscriptionService> & {
+      unsubscribe: (token: string) => Promise<void>
+    }
+
+    await expect(
+      Promise.resolve().then(async () => service.unsubscribe('not-a-uuid'))
+    ).rejects.toBeInstanceOf(InvalidTokenError)
+    expect(repository.findByUnsubscribeToken).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when the unsubscribe token is valid but missing', async () => {
+    const repository = createRepositoryMock()
+    const service = createSubscriptionService({
+      repository,
+      githubClient: {
+        assertRepositoryExists: createResolvedVoidMock()
+      },
+      mailer: {
+        sendConfirmationEmail: createResolvedVoidMock(),
+        sendReleaseEmail: createResolvedVoidMock()
+      },
+      appBaseUrl: 'http://localhost:3000'
+    }) as ReturnType<typeof createSubscriptionService> & {
+      unsubscribe: (token: string) => Promise<void>
+    }
+
+    await expect(
+      Promise.resolve().then(async () => service.unsubscribe(validToken))
+    ).rejects.toBeInstanceOf(TokenNotFoundError)
+  })
+
+  it('soft deletes an active subscription by unsubscribe token', async () => {
+    const repository = createRepositoryMock()
+    repository.findByUnsubscribeToken = vi.fn(() => Promise.resolve({
+      id: 'subscription-id'
+    }))
+    const service = createSubscriptionService({
+      repository,
+      githubClient: {
+        assertRepositoryExists: createResolvedVoidMock()
+      },
+      mailer: {
+        sendConfirmationEmail: createResolvedVoidMock(),
+        sendReleaseEmail: createResolvedVoidMock()
+      },
+      appBaseUrl: 'http://localhost:3000'
+    }) as ReturnType<typeof createSubscriptionService> & {
+      unsubscribe: (token: string) => Promise<void>
+    }
+
+    await expect(
+      Promise.resolve().then(async () => service.unsubscribe(validToken))
+    ).resolves.toBeUndefined()
+    expect(repository.findByUnsubscribeToken).toHaveBeenCalledWith(validToken)
+    expect(repository.unsubscribe).toHaveBeenCalledWith('subscription-id')
   })
 })

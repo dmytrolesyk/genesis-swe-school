@@ -32,8 +32,10 @@ export type SubscriptionRepository = {
     repoFullName: string
   ) => Promise<ActiveSubscription | null>
   findByConfirmToken: (token: string) => Promise<ConfirmableSubscription | null>
+  findByUnsubscribeToken: (token: string) => Promise<ActiveSubscription | null>
   confirmSubscription: (id: string) => Promise<void>
   insertPendingSubscription: (subscription: PendingSubscription) => Promise<void>
+  unsubscribe: (id: string) => Promise<void>
 }
 
 type ActiveSubscriptionRow = {
@@ -116,6 +118,18 @@ export function createSubscriptionRepository (
         id: row.id
       }
     },
+    async findByUnsubscribeToken (token) {
+      const result = await pool.query<ActiveSubscriptionRow>(
+        `SELECT id
+         FROM subscriptions
+         WHERE unsubscribe_token = $1
+           AND unsubscribed_at IS NULL
+         LIMIT 1`,
+        [token]
+      )
+
+      return result.rows[0] ?? null
+    },
     async confirmSubscription (id) {
       await pool.query(
         `UPDATE subscriptions
@@ -147,6 +161,15 @@ export function createSubscriptionRepository (
           subscription.confirmToken,
           subscription.unsubscribeToken
         ]
+      )
+    },
+    async unsubscribe (id) {
+      await pool.query(
+        `UPDATE subscriptions
+         SET unsubscribed_at = COALESCE(unsubscribed_at, now()),
+             updated_at = now()
+         WHERE id = $1`,
+        [id]
       )
     }
   }

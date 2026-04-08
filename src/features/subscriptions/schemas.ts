@@ -26,6 +26,15 @@ export const confirmResponseSchema = {
   }
 }
 
+export const unsubscribeResponseSchema = {
+  params: confirmParamsSchema,
+  response: {
+    200: Type.Object({}),
+    400: httpErrorSchema,
+    404: httpErrorSchema
+  }
+}
+
 export const subscriptionsQuerySchema = Type.Object({
   email: Type.String({
     format: 'email'

@@ -26,7 +26,8 @@ import {
 import {
   confirmResponseSchema,
   subscriptionsResponseSchema,
-  subscribeResponseSchema
+  subscribeResponseSchema,
+  unsubscribeResponseSchema
 } from './schemas.ts'
 
 export type SubscriptionRoutesOptions = FastifyPluginOptions & {
@@ -80,6 +81,13 @@ const subscriptionsRoutesPlugin: FastifyPluginCallback<SubscriptionRoutesOptions
     const subscriptions = await service.getSubscriptionsByEmail(request.query.email)
 
     return reply.code(200).send(subscriptions)
+  })
+
+  app.get('/unsubscribe/:token', {
+    schema: unsubscribeResponseSchema
+  }, async (request, reply) => {
+    await service.unsubscribe(request.params.token)
+    return reply.code(200).send({})
   })
 
   done()
