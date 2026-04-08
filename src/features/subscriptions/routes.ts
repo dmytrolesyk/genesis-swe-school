@@ -1,0 +1,72 @@
+import fp from 'fastify-plugin'
+import {
+  type FastifyPluginCallback,
+  type FastifyPluginOptions
+} from 'fastify'
+import {
+  type TypeBoxTypeProvider
+} from '@fastify/type-provider-typebox'
+
+import {
+  createGitHubClient,
+  type GitHubClient
+} from '../github/client.ts'
+import {
+  createMailer,
+  type Mailer
+} from '../../infra/email/mailer.ts'
+import {
+  createSubscriptionRepository,
+  type SubscriptionRepository
+} from './repository.ts'
+import {
+  createSubscriptionService,
+  type SubscriptionService
+} from './service.ts'
+import { subscribeResponseSchema } from './schemas.ts'
+
+export type SubscriptionRoutesOptions = FastifyPluginOptions & {
+  githubClient?: GitHubClient
+  mailer?: Mailer
+  repository?: SubscriptionRepository
+  service?: SubscriptionService
+}
+
+const subscriptionsRoutesPlugin: FastifyPluginCallback<SubscriptionRoutesOptions> = (
+  fastify,
+  options,
+  done
+) => {
+  const githubClient = options.githubClient ?? createGitHubClient({
+    token: fastify.config.GITHUB_TOKEN
+  })
+  const mailer = options.mailer ?? createMailer({
+    from: fastify.config.SMTP_FROM,
+    host: fastify.config.SMTP_HOST,
+    pass: fastify.config.SMTP_PASS,
+    port: fastify.config.SMTP_PORT,
+    user: fastify.config.SMTP_USER
+  })
+  const repository = options.repository ?? createSubscriptionRepository(fastify.pg)
+  const service = options.service ?? createSubscriptionService({
+    appBaseUrl: fastify.config.APP_BASE_URL,
+    githubClient,
+    mailer,
+    repository
+  })
+  const app = fastify.withTypeProvider<TypeBoxTypeProvider>()
+
+  app.post('/subscribe', {
+    schema: subscribeResponseSchema
+  }, async (request, reply) => {
+    await service.subscribe(request.body)
+    return reply.code(200).send({})
+  })
+
+  done()
+}
+
+export default fp(subscriptionsRoutesPlugin, {
+  name: 'subscriptions-routes',
+  dependencies: ['config', 'database', 'errors']
+})
