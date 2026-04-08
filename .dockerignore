@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+.git
+.gitignore
+coverage
+.env
+.env.*
+pnpm-debug.log*
+.DS_Store
+docs
+AGENTS.md
+task.md
+swagger.yaml
+src/**/*.test.ts
