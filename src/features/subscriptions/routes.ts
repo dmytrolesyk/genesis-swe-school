@@ -25,6 +25,7 @@ import {
 } from './service.ts'
 import {
   confirmResponseSchema,
+  subscriptionsResponseSchema,
   subscribeResponseSchema
 } from './schemas.ts'
 
@@ -71,6 +72,14 @@ const subscriptionsRoutesPlugin: FastifyPluginCallback<SubscriptionRoutesOptions
   }, async (request, reply) => {
     await service.confirmSubscription(request.params.token)
     return reply.code(200).send({})
+  })
+
+  app.get('/subscriptions', {
+    schema: subscriptionsResponseSchema
+  }, async (request, reply) => {
+    const subscriptions = await service.getSubscriptionsByEmail(request.query.email)
+
+    return reply.code(200).send(subscriptions)
   })
 
   done()

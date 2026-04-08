@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { buildApp } from '../../app.ts'
+import type { SubscriptionService } from './service.ts'
 import {
   GitHubRepositoryNotFoundError,
   TokenNotFoundError
@@ -18,7 +19,29 @@ function createResolvedVoidMock () {
   return vi.fn(() => Promise.resolve())
 }
 
+function createServiceStub (): SubscriptionService {
+  return {
+    confirmSubscription: createResolvedVoidMock(),
+    getSubscriptionsByEmail: vi.fn(() => Promise.resolve([])),
+    subscribe: createResolvedVoidMock()
+  }
+}
+
 const validToken = '00000000-0000-4000-8000-000000000001'
+const listedSubscriptions = [
+  {
+    confirmed: true,
+    email: 'user@example.com',
+    last_seen_tag: 'v1.0.0',
+    repo: 'openai/openai-node'
+  },
+  {
+    confirmed: false,
+    email: 'user@example.com',
+    last_seen_tag: null,
+    repo: 'openai/openai-agents-js'
+  }
+]
 
 function createRepositoryStub () {
   const activeSubscriptions = new Set<string>()
@@ -38,6 +61,7 @@ function createRepositoryStub () {
           : Promise.resolve(null)
       }),
       findByConfirmToken: vi.fn(() => Promise.resolve(null)),
+      getSubscriptionsByEmail: vi.fn(() => Promise.resolve([])),
       insertPendingSubscription: vi.fn((subscription: PendingSubscription) => {
         pendingSubscriptions.push(subscription)
         return Promise.resolve()
@@ -219,11 +243,7 @@ describe('GET /api/confirm/:token', () => {
   })
 
   it('returns 400 for invalid token shapes', async () => {
-    const confirmSubscription = createResolvedVoidMock()
-    const service = {
-      confirmSubscription,
-      subscribe: createResolvedVoidMock()
-    }
+    const service = createServiceStub()
     const app = buildApp({}, {
       subscriptions: {
         service
@@ -238,18 +258,17 @@ describe('GET /api/confirm/:token', () => {
     })
 
     expect(response.statusCode).toBe(400)
-    expect(confirmSubscription).not.toHaveBeenCalled()
+    expect(service.confirmSubscription).not.toHaveBeenCalled()
 
     await app.close()
   })
 
   it('returns 404 for unknown confirmation tokens', async () => {
+    const service = createServiceStub()
+    service.confirmSubscription = vi.fn(() => Promise.reject(new TokenNotFoundError()))
     const app = buildApp({}, {
       subscriptions: {
-        service: {
-          confirmSubscription: vi.fn(() => Promise.reject(new TokenNotFoundError())),
-          subscribe: createResolvedVoidMock()
-        }
+        service
       }
     })
 
@@ -266,13 +285,10 @@ describe('GET /api/confirm/:token', () => {
   })
 
   it('returns 200 when a subscription is confirmed', async () => {
-    const confirmSubscription = createResolvedVoidMock()
+    const service = createServiceStub()
     const app = buildApp({}, {
       subscriptions: {
-        service: {
-          confirmSubscription,
-          subscribe: createResolvedVoidMock()
-        }
+        service
       }
     })
 
@@ -284,19 +300,16 @@ describe('GET /api/confirm/:token', () => {
     })
 
     expect(response.statusCode).toBe(200)
-    expect(confirmSubscription).toHaveBeenCalledWith(validToken)
+    expect(service.confirmSubscription).toHaveBeenCalledWith(validToken)
 
     await app.close()
   })
 
   it('keeps repeated confirmation predictable', async () => {
-    const confirmSubscription = createResolvedVoidMock()
+    const service = createServiceStub()
     const app = buildApp({}, {
       subscriptions: {
-        service: {
-          confirmSubscription,
-          subscribe: createResolvedVoidMock()
-        }
+        service
       }
     })
 
@@ -313,7 +326,57 @@ describe('GET /api/confirm/:token', () => {
 
     expect(firstResponse.statusCode).toBe(200)
     expect(secondResponse.statusCode).toBe(200)
-    expect(confirmSubscription).toHaveBeenCalledTimes(2)
+    expect(service.confirmSubscription).toHaveBeenCalledTimes(2)
+
+    await app.close()
+  })
+})
+
+describe('GET /api/subscriptions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns 400 for invalid email queries', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      subscriptions: {
+        service
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/subscriptions?email=not-an-email'
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(service.getSubscriptionsByEmail).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
+  it('returns active subscriptions with confirmed and last_seen_tag fields', async () => {
+    const service = createServiceStub()
+    service.getSubscriptionsByEmail = vi.fn(() => Promise.resolve(listedSubscriptions))
+    const app = buildApp({}, {
+      subscriptions: {
+        service
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/subscriptions?email=user@example.com'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual(listedSubscriptions)
+    expect(service.getSubscriptionsByEmail).toHaveBeenCalledWith('user@example.com')
 
     await app.close()
   })

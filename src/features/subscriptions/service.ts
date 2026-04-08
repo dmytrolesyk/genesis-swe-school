@@ -9,6 +9,7 @@ import {
   TokenNotFoundError
 } from '../../shared/errors.ts'
 import type {
+  ListedSubscription,
   PendingSubscription,
   SubscriptionRepository
 } from './repository.ts'
@@ -20,6 +21,7 @@ export type SubscribeInput = {
 
 export type SubscriptionService = {
   confirmSubscription: (token: string) => Promise<void>
+  getSubscriptionsByEmail: (email: string) => Promise<ListedSubscription[]>
   subscribe: (input: SubscribeInput) => Promise<void>
 }
 
@@ -74,6 +76,9 @@ export function createSubscriptionService (
       }
 
       await options.repository.confirmSubscription(subscription.id)
+    },
+    async getSubscriptionsByEmail (email) {
+      return options.repository.getSubscriptionsByEmail(email)
     },
     async subscribe (input) {
       const parsedRepo = parseRepoRef(input.repo)

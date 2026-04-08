@@ -17,7 +17,15 @@ export type PendingSubscription = {
   unsubscribeToken: string
 }
 
+export type ListedSubscription = {
+  confirmed: boolean
+  email: string
+  last_seen_tag: string | null
+  repo: string
+}
+
 export type SubscriptionRepository = {
+  getSubscriptionsByEmail: (email: string) => Promise<ListedSubscription[]>
   ensureRepository: (repoFullName: string) => Promise<void>
   findActiveSubscription: (
     email: string,
@@ -37,10 +45,35 @@ type ConfirmableSubscriptionRow = {
   id: string
 }
 
+type ListedSubscriptionRow = {
+  confirmed: boolean
+  email: string
+  last_seen_tag: string | null
+  repo: string
+}
+
 export function createSubscriptionRepository (
   pool: Pick<Pool, 'query'>
 ): SubscriptionRepository {
   return {
+    async getSubscriptionsByEmail (email) {
+      const result = await pool.query<ListedSubscriptionRow>(
+        `SELECT
+           subscriptions.email,
+           subscriptions.repo_full_name AS repo,
+           subscriptions.confirmed_at IS NOT NULL AS confirmed,
+           repositories.last_seen_tag
+         FROM subscriptions
+         INNER JOIN repositories
+           ON repositories.repo_full_name = subscriptions.repo_full_name
+         WHERE subscriptions.email = $1
+           AND subscriptions.unsubscribed_at IS NULL
+         ORDER BY subscriptions.created_at ASC, subscriptions.repo_full_name ASC`,
+        [email]
+      )
+
+      return result.rows
+    },
     async ensureRepository (repoFullName) {
       await pool.query(
         `INSERT INTO repositories(repo_full_name)

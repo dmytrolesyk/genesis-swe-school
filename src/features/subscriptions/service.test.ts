@@ -20,11 +20,26 @@ function createRepositoryMock (): SubscriptionRepository {
     ensureRepository: createResolvedVoidMock(),
     findActiveSubscription: vi.fn(() => Promise.resolve(null)),
     findByConfirmToken: vi.fn(() => Promise.resolve(null)),
+    getSubscriptionsByEmail: vi.fn(() => Promise.resolve([])),
     insertPendingSubscription: createResolvedVoidMock()
   }
 }
 
 const validToken = '00000000-0000-4000-8000-000000000001'
+const listedSubscriptions = [
+  {
+    confirmed: true,
+    email: 'user@example.com',
+    last_seen_tag: 'v1.0.0',
+    repo: 'openai/openai-node'
+  },
+  {
+    confirmed: false,
+    email: 'user@example.com',
+    last_seen_tag: null,
+    repo: 'openai/openai-agents-js'
+  }
+]
 
 describe('createSubscriptionService', () => {
   it('rejects duplicate active subscriptions', async () => {
@@ -238,5 +253,30 @@ describe('createSubscriptionService', () => {
     await expect(service.confirmSubscription(validToken)).resolves.toBeUndefined()
     await expect(service.confirmSubscription(validToken)).resolves.toBeUndefined()
     expect(repository.confirmSubscription).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns active subscriptions with confirmation and last_seen_tag metadata', async () => {
+    const repository = {
+      ...createRepositoryMock(),
+      getSubscriptionsByEmail: vi.fn(() => Promise.resolve(listedSubscriptions))
+    }
+    const service = createSubscriptionService({
+      repository,
+      githubClient: {
+        assertRepositoryExists: createResolvedVoidMock()
+      },
+      mailer: {
+        sendConfirmationEmail: createResolvedVoidMock(),
+        sendReleaseEmail: createResolvedVoidMock()
+      },
+      appBaseUrl: 'http://localhost:3000'
+    }) as ReturnType<typeof createSubscriptionService> & {
+      getSubscriptionsByEmail: (email: string) => Promise<typeof listedSubscriptions>
+    }
+
+    await expect(service.getSubscriptionsByEmail('user@example.com')).resolves.toEqual(
+      listedSubscriptions
+    )
+    expect(repository.getSubscriptionsByEmail).toHaveBeenCalledWith('user@example.com')
   })
 })
