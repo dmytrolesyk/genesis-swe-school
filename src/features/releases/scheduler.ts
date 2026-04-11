@@ -27,10 +27,8 @@ export type ReleaseScheduler = {
 }
 
 type CreateReleaseSchedulerOptions = {
-  clearIntervalImplementation?: typeof clearInterval
   intervalMs: number
   scanner: ReleaseScanner
-  setIntervalImplementation?: typeof setInterval
 }
 
 export type ReleaseSchedulerOptions = FastifyPluginOptions & {
@@ -45,11 +43,6 @@ export type ReleaseSchedulerOptions = FastifyPluginOptions & {
 export function createReleaseScheduler (
   options: CreateReleaseSchedulerOptions
 ): ReleaseScheduler {
-  const setIntervalImplementation =
-    options.setIntervalImplementation ?? globalThis.setInterval
-  const clearIntervalImplementation =
-    options.clearIntervalImplementation ?? globalThis.clearInterval
-
   let activeRun: Promise<void> | null = null
   let timer: ReturnType<typeof setInterval> | null = null
 
@@ -73,7 +66,7 @@ export function createReleaseScheduler (
         return
       }
 
-      timer = setIntervalImplementation(() => {
+      timer = setInterval(() => {
         runScan().catch(() => undefined)
       }, options.intervalMs)
     },
@@ -82,7 +75,7 @@ export function createReleaseScheduler (
         return
       }
 
-      clearIntervalImplementation(timer)
+      clearInterval(timer)
       timer = null
     }
   }

@@ -47,5 +47,19 @@ services:
       - '8025:8025'
     restart: unless-stopped
 
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      URL: /swagger.yaml
+    ports:
+      - '8081:8080'
+    restart: unless-stopped
+    volumes:
+      - ./swagger.yaml:/usr/share/nginx/html/swagger.yaml:ro
+      - ./docker/swagger-ui/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+
 volumes:
   postgres-data:

@@ -80,6 +80,13 @@ That starts:
 - PostgreSQL on `localhost:5432`
 - Mailpit SMTP on `localhost:1025`
 - Mailpit UI on `http://localhost:8025`
+- Swagger UI on `http://localhost:8081`
+
+Swagger UI serves a local browser interface for `swagger.yaml`. The checked-in
+contract still uses `releases-api.app`, so the Compose-only Nginx proxy rewrites
+the served copy to `localhost:8081` and forwards `/api` requests to the `app`
+container. This keeps the source contract unchanged while making "Try it out"
+work locally without adding CORS support to the API.
 
 To stop everything and remove the named volume:
 
@@ -109,6 +116,14 @@ Then:
    ```
 
 4. Follow the `/api/unsubscribe/{token}` link from the email to remove the subscription.
+
+You can run the same flow through Swagger UI instead:
+
+1. Open Swagger UI at `http://localhost:8081`.
+2. Use `POST /subscribe` with the same JSON body shown above.
+3. Open Mailpit, copy the confirmation token, and run `GET /confirm/{token}`.
+4. Run `GET /subscriptions?email=alice@example.com`.
+5. Copy the unsubscribe token from Mailpit and run `GET /unsubscribe/{token}`.
 
 ## Confirmation and release scanning flow
 
