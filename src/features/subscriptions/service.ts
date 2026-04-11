@@ -104,10 +104,10 @@ export function createSubscriptionService (
 
       await options.repository.insertPendingSubscription(pendingSubscription)
       await options.mailer.sendConfirmationEmail({
-        confirmUrl: `${options.appBaseUrl}/api/confirm/${pendingSubscription.confirmToken}`,
+        confirmUrl: `${options.appBaseUrl}/confirm/${pendingSubscription.confirmToken}`,
         email: pendingSubscription.email,
         repoFullName: pendingSubscription.repoFullName,
-        unsubscribeUrl: `${options.appBaseUrl}/api/unsubscribe/${pendingSubscription.unsubscribeToken}`
+        unsubscribeUrl: `${options.appBaseUrl}/unsubscribe/${pendingSubscription.unsubscribeToken}`
       })
     },
     async unsubscribe (token) {

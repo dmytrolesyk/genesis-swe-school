@@ -46,7 +46,7 @@ export function createReleaseScanner (
               email: subscriber.email,
               repoFullName,
               tag: latestTag,
-              unsubscribeUrl: `${options.appBaseUrl}/api/unsubscribe/${subscriber.unsubscribeToken}`
+              unsubscribeUrl: `${options.appBaseUrl}/unsubscribe/${subscriber.unsubscribeToken}`
             })
           }
 

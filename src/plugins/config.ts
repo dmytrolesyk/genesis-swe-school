@@ -3,6 +3,7 @@ import fp from 'fastify-plugin'
 import { Type, type Static } from '@sinclair/typebox'
 
 export const configSchema = Type.Object({
+  API_KEY: Type.String({ default: 'local-dev-key' }),
   HOST: Type.String({ default: '0.0.0.0' }),
   PORT: Type.Integer({ default: 3000 }),
   DATABASE_URL: Type.String({
@@ -21,10 +22,19 @@ export const configSchema = Type.Object({
 export type AppConfig = Static<typeof configSchema>
 
 export function loadConfig (): AppConfig {
-  return envSchema<AppConfig>({
+  const config = envSchema<AppConfig>({
     schema: configSchema,
     dotenv: true
   })
+
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (process.env.API_KEY === undefined || process.env.API_KEY === '')
+  ) {
+    throw new Error('API_KEY must be set in production')
+  }
+
+  return config
 }
 
 declare module 'fastify' {

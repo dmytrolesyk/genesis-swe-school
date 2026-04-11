@@ -38,6 +38,9 @@ function createServiceStub (): SubscriptionService {
 
 const validToken = '00000000-0000-4000-8000-000000000001'
 const secondValidToken = '00000000-0000-4000-8000-000000000002'
+const authHeaders = {
+  'x-api-key': 'local-dev-key'
+}
 const listedSubscriptions = [
   {
     confirmed: true,
@@ -103,6 +106,7 @@ describe('POST /api/subscribe', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'POST',
       payload: {
         email: 'user@example.com'
@@ -132,6 +136,7 @@ describe('POST /api/subscribe', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'POST',
       payload: {
         email: 'user@example.com',
@@ -166,6 +171,7 @@ describe('POST /api/subscribe', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'POST',
       payload: {
         email: 'user@example.com',
@@ -198,6 +204,7 @@ describe('POST /api/subscribe', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'POST',
       payload: {
         email: 'user@example.com',
@@ -229,6 +236,7 @@ describe('POST /api/subscribe', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'POST',
       payload: {
         email: 'user@example.com',
@@ -261,6 +269,7 @@ describe('GET /api/confirm/:token', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: '/api/confirm/not-a-uuid'
     })
@@ -283,6 +292,7 @@ describe('GET /api/confirm/:token', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: `/api/confirm/${validToken}`
     })
@@ -303,6 +313,7 @@ describe('GET /api/confirm/:token', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: `/api/confirm/${validToken}`
     })
@@ -324,10 +335,12 @@ describe('GET /api/confirm/:token', () => {
     await app.ready()
 
     const firstResponse = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: `/api/confirm/${validToken}`
     })
     const secondResponse = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: `/api/confirm/${validToken}`
     })
@@ -356,6 +369,7 @@ describe('GET /api/subscriptions', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: '/api/subscriptions?email=not-an-email'
     })
@@ -378,6 +392,7 @@ describe('GET /api/subscriptions', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: '/api/subscriptions?email=user@example.com'
     })
@@ -406,6 +421,7 @@ describe('GET /api/unsubscribe/:token', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: '/api/unsubscribe/not-a-uuid'
     })
@@ -428,6 +444,7 @@ describe('GET /api/unsubscribe/:token', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: `/api/unsubscribe/${validToken}`
     })
@@ -448,6 +465,7 @@ describe('GET /api/unsubscribe/:token', () => {
     await app.ready()
 
     const response = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: `/api/unsubscribe/${validToken}`
     })
@@ -501,10 +519,12 @@ describe('GET /api/unsubscribe/:token', () => {
     await app.ready()
 
     const unsubscribeResponse = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: `/api/unsubscribe/${secondValidToken}`
     })
     const subscriptionsResponse = await app.inject({
+      headers: authHeaders,
       method: 'GET',
       url: '/api/subscriptions?email=user@example.com'
     })

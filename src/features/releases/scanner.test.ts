@@ -120,13 +120,13 @@ describe('createReleaseScanner', () => {
       email: 'first@example.com',
       repoFullName: 'openai/openai-node',
       tag: 'v2.0.0',
-      unsubscribeUrl: 'http://localhost:3000/api/unsubscribe/unsubscribe-token-1'
+      unsubscribeUrl: 'http://localhost:3000/unsubscribe/unsubscribe-token-1'
     })
     expect(mailer.sendReleaseEmail).toHaveBeenNthCalledWith(2, {
       email: 'second@example.com',
       repoFullName: 'openai/openai-node',
       tag: 'v2.0.0',
-      unsubscribeUrl: 'http://localhost:3000/api/unsubscribe/unsubscribe-token-2'
+      unsubscribeUrl: 'http://localhost:3000/unsubscribe/unsubscribe-token-2'
     })
     expect(repository.updateLastSeenTag).toHaveBeenCalledWith('openai/openai-node', 'v2.0.0')
   })

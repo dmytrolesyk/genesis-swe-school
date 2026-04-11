@@ -23,6 +23,7 @@ Copy `.env.example` to `.env` before running locally.
 | `PORT` | `3000` | HTTP listen port |
 | `DATABASE_URL` | `postgres://postgres:postgres@localhost:5432/releases` | PostgreSQL connection string for local host-based development |
 | `APP_BASE_URL` | `http://localhost:3000` | Public base URL used in confirmation and unsubscribe links |
+| `API_KEY` | `local-dev-key` | Required `x-api-key` value for protected `/api` routes |
 | `SCAN_INTERVAL_MS` | `60000` | Release scanner polling interval in milliseconds |
 | `GITHUB_TOKEN` | empty | Optional GitHub token for higher API rate limits |
 | `SMTP_HOST` | `localhost` | SMTP host for outgoing mail |
@@ -115,6 +116,7 @@ Required app variables:
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
 | `HOST` | `0.0.0.0` |
 | `APP_BASE_URL` | Public Railway app URL, for example `https://sfe-school-production.up.railway.app` |
+| `API_KEY` | Long random secret for protected API requests |
 | `SCAN_INTERVAL_MS` | `60000` |
 | `SMTP_HOST` | `smtp.resend.com` |
 | `SMTP_PORT` | `587` (kept for config compatibility; Resend production sends over HTTPS) |
@@ -144,35 +146,37 @@ Create a subscription:
 curl --request POST \
   --url http://localhost:3000/api/subscribe \
   --header 'content-type: application/json' \
+  --header 'x-api-key: local-dev-key' \
   --data '{"email":"alice@example.com","repo":"nodejs/node"}'
 ```
 
 Then:
 
 1. Open Mailpit at `http://localhost:8025`.
-2. Open the confirmation email and follow the `/api/confirm/{token}` link.
+2. Open the confirmation email and follow the public `/confirm/{token}` link.
 3. List active subscriptions:
 
    ```bash
-   curl 'http://localhost:3000/api/subscriptions?email=alice@example.com'
+   curl 'http://localhost:3000/api/subscriptions?email=alice@example.com' \
+     --header 'x-api-key: local-dev-key'
    ```
 
-4. Follow the `/api/unsubscribe/{token}` link from the email to remove the subscription.
+4. Follow the public `/unsubscribe/{token}` link from the email to remove the subscription.
 
-You can run the same flow through Swagger UI instead:
+Swagger UI remains useful for checking request and response shapes:
 
 1. Open Swagger UI at `http://localhost:8081`.
-2. Use `POST /subscribe` with the same JSON body shown above.
-3. Open Mailpit, copy the confirmation token, and run `GET /confirm/{token}`.
-4. Run `GET /subscriptions?email=alice@example.com`.
-5. Copy the unsubscribe token from Mailpit and run `GET /unsubscribe/{token}`.
+2. Use the curl examples for protected calls because the fixed Swagger contract does not define the `x-api-key` header.
+3. Open Mailpit and use the public confirmation or unsubscribe links from the email.
 
 ## Confirmation and release scanning flow
 
 - `POST /api/subscribe` validates the GitHub repository, creates a pending subscription, and sends a confirmation email.
-- `GET /api/confirm/{token}` marks the subscription as confirmed.
+- `/api/*` routes require the configured `x-api-key` header.
+- Public email clicks use `GET /confirm/{token}` and `GET /unsubscribe/{token}` without an API key.
+- `GET /api/confirm/{token}` also marks the subscription as confirmed for API clients with the key.
 - `GET /api/subscriptions?email=...` returns active subscriptions for the email address.
-- `GET /api/unsubscribe/{token}` marks the subscription as unsubscribed.
+- `GET /api/unsubscribe/{token}` also marks the subscription as unsubscribed for API clients with the key.
 - The release scanner starts with the app and checks confirmed repositories on the configured interval.
 - When `last_seen_tag` is `null`, the first discovered GitHub release becomes the baseline and no notification is sent.
 - A release email is sent only after a later scan detects a new tag for a confirmed, active subscription.

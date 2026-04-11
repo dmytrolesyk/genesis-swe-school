@@ -112,10 +112,10 @@ describe('createSubscriptionService', () => {
       unsubscribeToken: 'unsubscribe-token'
     })
     expect(sendConfirmationEmail).toHaveBeenCalledWith({
-      confirmUrl: 'http://localhost:3000/api/confirm/confirm-token',
+      confirmUrl: 'http://localhost:3000/confirm/confirm-token',
       email: 'user@example.com',
       repoFullName: 'openai/openai-node',
-      unsubscribeUrl: 'http://localhost:3000/api/unsubscribe/unsubscribe-token'
+      unsubscribeUrl: 'http://localhost:3000/unsubscribe/unsubscribe-token'
     })
   })
 
