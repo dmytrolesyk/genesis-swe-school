@@ -68,6 +68,10 @@ pnpm typecheck
 pnpm test
 ```
 
+## Continuous integration
+
+GitHub Actions runs `pnpm lint`, `pnpm typecheck`, and `pnpm test` on every push to `main` and on pull requests.
+
 ## Run the full stack in Docker
 
 ```bash
