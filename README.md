@@ -9,7 +9,8 @@ A Fastify monolith that lets users subscribe to GitHub release notifications by 
 - Fastify serves the REST API under `/api`.
 - PostgreSQL stores repositories, subscriptions, release state, and applied migrations.
 - SQL migrations run automatically on service startup.
-- Nodemailer sends confirmation and release emails through SMTP.
+- Local development sends confirmation and release emails through Mailpit SMTP.
+- Railway production sends Resend email over the Resend HTTPS API.
 - An in-process scheduler polls GitHub releases on `SCAN_INTERVAL_MS` and updates `last_seen_tag`.
 
 ## Environment variables
@@ -31,6 +32,9 @@ Copy `.env.example` to `.env` before running locally.
 | `SMTP_FROM` | `noreply@example.com` | From address used in sent emails |
 
 `docker-compose.yml` overrides the database and SMTP hostnames for the containerized `app` service, so the `.env.example` defaults stay convenient for `pnpm dev` on the host machine.
+When `SMTP_HOST=smtp.resend.com` and `SMTP_USER=resend`, the app treats
+`SMTP_PASS` as a Resend API key and sends email through the Resend HTTPS API
+instead of opening an SMTP connection. Other hosts keep using SMTP.
 
 ## Run locally with pnpm
 
@@ -97,6 +101,40 @@ To stop everything and remove the named volume:
 ```bash
 docker compose down -v
 ```
+
+## Deploy to Railway
+
+The app can run as one Railway service with a managed Postgres service.
+The current production project uses the public app origin
+`https://sfe-school-production.up.railway.app`.
+
+Required app variables:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `HOST` | `0.0.0.0` |
+| `APP_BASE_URL` | Public Railway app URL, for example `https://sfe-school-production.up.railway.app` |
+| `SCAN_INTERVAL_MS` | `60000` |
+| `SMTP_HOST` | `smtp.resend.com` |
+| `SMTP_PORT` | `587` (kept for config compatibility; Resend production sends over HTTPS) |
+| `SMTP_USER` | `resend` |
+| `SMTP_PASS` | Resend API key |
+| `SMTP_FROM` | Verified Resend sender, for example `GitHub Release Notifications <notifications@your-domain>` |
+
+Do not set `PORT`; Railway supplies it at runtime. Keep Postgres private by
+using the `Postgres.DATABASE_URL` reference from the app service rather than a
+public database URL.
+
+The `SMTP_*` names are shared with the local Mailpit setup. On Railway, the
+`smtp.resend.com` and `resend` values switch the mailer to Resend's HTTPS API,
+which avoids Railway's SMTP egress limits while keeping the same app-level
+configuration shape.
+
+Resend requires a verified sender domain before production email sends. The
+domain in `SMTP_FROM` must match the verified Resend domain. For controlled test
+sends, use `delivered@resend.dev` or a real inbox you control; avoid fake
+addresses at real providers because they bounce and can damage deliverability.
 
 ## Manual smoke test
 
