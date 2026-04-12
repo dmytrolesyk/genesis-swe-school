@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import type { GitHubClient } from '../github/client.ts'
 import { parseRepoRef } from '../github/repo-ref.ts'
+import type { Metrics } from '../metrics/metrics.ts'
 import type { Mailer } from '../../infra/email/mailer.ts'
 import {
   DuplicateSubscriptionError,
@@ -31,6 +32,10 @@ type CreateSubscriptionServiceOptions = {
   generateToken?: () => string
   githubClient: GitHubClient
   mailer: Mailer
+  metrics?: Pick<
+    Metrics,
+    'subscriptionsConfirmed' | 'subscriptionsCreated' | 'subscriptionsUnsubscribed'
+  >
   repository: SubscriptionRepository
 }
 
@@ -77,6 +82,7 @@ export function createSubscriptionService (
       }
 
       await options.repository.confirmSubscription(subscription.id)
+      options.metrics?.subscriptionsConfirmed()
     },
     async getSubscriptionsByEmail (email) {
       return options.repository.getSubscriptionsByEmail(email)
@@ -109,6 +115,7 @@ export function createSubscriptionService (
         repoFullName: pendingSubscription.repoFullName,
         unsubscribeUrl: `${options.appBaseUrl}/unsubscribe/${pendingSubscription.unsubscribeToken}`
       })
+      options.metrics?.subscriptionsCreated()
     },
     async unsubscribe (token) {
       assertValidToken(token)
@@ -120,6 +127,7 @@ export function createSubscriptionService (
       }
 
       await options.repository.unsubscribe(subscription.id)
+      options.metrics?.subscriptionsUnsubscribed()
     }
   }
 }

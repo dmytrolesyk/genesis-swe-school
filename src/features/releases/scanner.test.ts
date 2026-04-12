@@ -35,6 +35,13 @@ function createMailerMock (): Pick<Mailer, 'sendReleaseEmail'> {
   }
 }
 
+function createReleaseMetricsMock () {
+  return {
+    releaseNotification: vi.fn(),
+    scannerRun: vi.fn()
+  }
+}
+
 describe('createReleaseScanner', () => {
   it('stores the first seen tag as a baseline without sending emails', async () => {
     const repository = createReleaseRepositoryMock()
@@ -85,6 +92,7 @@ describe('createReleaseScanner', () => {
 
   it('updates the stored tag and notifies confirmed active subscribers when a new release appears', async () => {
     const repository = createReleaseRepositoryMock()
+    const metrics = createReleaseMetricsMock()
     const subscribers: ReleaseSubscriber[] = [
       {
         email: 'first@example.com',
@@ -110,6 +118,7 @@ describe('createReleaseScanner', () => {
       appBaseUrl: 'http://localhost:3000',
       githubClient,
       mailer,
+      metrics,
       repository
     })
 
@@ -129,6 +138,29 @@ describe('createReleaseScanner', () => {
       unsubscribeUrl: 'http://localhost:3000/unsubscribe/unsubscribe-token-2'
     })
     expect(repository.updateLastSeenTag).toHaveBeenCalledWith('openai/openai-node', 'v2.0.0')
+    expect(metrics.releaseNotification).toHaveBeenCalledTimes(2)
+    expect(metrics.releaseNotification).toHaveBeenNthCalledWith(1, 'success')
+    expect(metrics.releaseNotification).toHaveBeenNthCalledWith(2, 'success')
+    expect(metrics.scannerRun).toHaveBeenCalledWith('success')
+  })
+
+  it('records scanner failures when the repository list cannot be loaded', async () => {
+    const repository = createReleaseRepositoryMock()
+    const metrics = createReleaseMetricsMock()
+    repository.listSubscribedRepositories = vi.fn(() => Promise.reject(
+      new Error('database unavailable')
+    ))
+
+    const scanner = createReleaseScanner({
+      appBaseUrl: 'http://localhost:3000',
+      githubClient: createGitHubClientMock(),
+      mailer: createMailerMock(),
+      metrics,
+      repository
+    })
+
+    await expect(scanner.scanAllRepositories()).rejects.toThrow('database unavailable')
+    expect(metrics.scannerRun).toHaveBeenCalledWith('failure')
   })
 
   it('keeps scanning when a repository has no releases yet', async () => {

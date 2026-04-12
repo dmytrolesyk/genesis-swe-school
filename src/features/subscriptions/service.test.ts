@@ -35,6 +35,14 @@ function createRepositoryMock (): SubscriptionRepository {
   }
 }
 
+function createSubscriptionMetricsMock () {
+  return {
+    subscriptionsConfirmed: vi.fn(),
+    subscriptionsCreated: vi.fn(),
+    subscriptionsUnsubscribed: vi.fn()
+  }
+}
+
 const validToken = '00000000-0000-4000-8000-000000000001'
 const listedSubscriptions = [
   {
@@ -79,6 +87,7 @@ describe('createSubscriptionService', () => {
     const repository = createRepositoryMock()
     const githubClient = createGitHubClientStub()
     const sendConfirmationEmail = createResolvedVoidMock()
+    const metrics = createSubscriptionMetricsMock()
     const generateToken = vi
       .fn<() => string>()
       .mockReturnValueOnce('subscription-id')
@@ -92,6 +101,7 @@ describe('createSubscriptionService', () => {
         sendConfirmationEmail,
         sendReleaseEmail: createResolvedVoidMock()
       },
+      metrics,
       appBaseUrl: 'http://localhost:3000',
       generateToken
     })
@@ -117,6 +127,7 @@ describe('createSubscriptionService', () => {
       repoFullName: 'openai/openai-node',
       unsubscribeUrl: 'http://localhost:3000/unsubscribe/unsubscribe-token'
     })
+    expect(metrics.subscriptionsCreated).toHaveBeenCalledTimes(1)
   })
 
   it('surfaces GitHub not-found errors', async () => {
@@ -211,6 +222,7 @@ describe('createSubscriptionService', () => {
       id: 'subscription-id'
     }))
     const githubClient = createGitHubClientStub()
+    const metrics = createSubscriptionMetricsMock()
     const service = createSubscriptionService({
       repository,
       githubClient,
@@ -218,6 +230,7 @@ describe('createSubscriptionService', () => {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
       },
+      metrics,
       appBaseUrl: 'http://localhost:3000'
     }) as ReturnType<typeof createSubscriptionService> & {
       confirmSubscription: (token: string) => Promise<void>
@@ -226,6 +239,7 @@ describe('createSubscriptionService', () => {
     await expect(service.confirmSubscription(validToken)).resolves.toBeUndefined()
     expect(repository.findByConfirmToken).toHaveBeenCalledWith(validToken)
     expect(repository.confirmSubscription).toHaveBeenCalledWith('subscription-id')
+    expect(metrics.subscriptionsConfirmed).toHaveBeenCalledTimes(1)
   })
 
   it('treats repeated confirmation of the same token as a no-op', async () => {
@@ -329,6 +343,7 @@ describe('createSubscriptionService', () => {
       id: 'subscription-id'
     }))
     const githubClient = createGitHubClientStub()
+    const metrics = createSubscriptionMetricsMock()
     const service = createSubscriptionService({
       repository,
       githubClient,
@@ -336,6 +351,7 @@ describe('createSubscriptionService', () => {
         sendConfirmationEmail: createResolvedVoidMock(),
         sendReleaseEmail: createResolvedVoidMock()
       },
+      metrics,
       appBaseUrl: 'http://localhost:3000'
     }) as ReturnType<typeof createSubscriptionService> & {
       unsubscribe: (token: string) => Promise<void>
@@ -346,5 +362,6 @@ describe('createSubscriptionService', () => {
     ).resolves.toBeUndefined()
     expect(repository.findByUnsubscribeToken).toHaveBeenCalledWith(validToken)
     expect(repository.unsubscribe).toHaveBeenCalledWith('subscription-id')
+    expect(metrics.subscriptionsUnsubscribed).toHaveBeenCalledTimes(1)
   })
 })

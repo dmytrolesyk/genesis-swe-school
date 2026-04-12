@@ -6,6 +6,7 @@ import {
   nullCache,
   type Cache
 } from '../../infra/cache/cache.ts'
+import type { Metrics } from '../metrics/metrics.ts'
 import { parseRepoRef } from './repo-ref.ts'
 
 export { parseRepoRef } from './repo-ref.ts'
@@ -21,6 +22,7 @@ type CreateGitHubClientOptions = {
   cache?: Cache
   cacheTtlSeconds?: number
   fetch?: FetchLike
+  metrics?: Pick<Metrics, 'githubCache' | 'githubRequest'>
   token?: string
 }
 
@@ -58,11 +60,21 @@ function isRateLimitedResponse (response: Response) {
 
 async function getCachedJson<T> (
   cache: Cache,
-  key: string
+  key: string,
+  metrics: Pick<Metrics, 'githubCache'> | undefined,
+  operation: string
 ): Promise<T | null> {
   try {
-    return await cache.getJson<T>(key)
+    const value = await cache.getJson<T>(key)
+    recordMetric(() => {
+      metrics?.githubCache(operation, value === null ? 'miss' : 'hit')
+    })
+
+    return value
   } catch {
+    recordMetric(() => {
+      metrics?.githubCache(operation, 'error')
+    })
     return null
   }
 }
@@ -71,10 +83,22 @@ async function setCachedJson (
   cache: Cache,
   key: string,
   value: unknown,
-  ttlSeconds: number
+  ttlSeconds: number,
+  metrics: Pick<Metrics, 'githubCache'> | undefined,
+  operation: string
 ): Promise<void> {
   try {
     await cache.setJson(key, value, ttlSeconds)
+  } catch {
+    recordMetric(() => {
+      metrics?.githubCache(operation, 'write_error')
+    })
+  }
+}
+
+function recordMetric (record: () => void): void {
+  try {
+    record()
   } catch {}
 }
 
@@ -99,11 +123,17 @@ export function createGitHubClient (
   const cacheTtlSeconds = options.cacheTtlSeconds ?? defaultGitHubCacheTtlSeconds
   const fetchImplementation = options.fetch ?? globalThis.fetch
   const headers = createHeaders(options.token)
+  const metrics = options.metrics
 
   async function assertRepositoryExists (repoFullName: string) {
     const parsedRepo = parseRepoRef(repoFullName)
     const cacheKey = `github:repo-exists:v1:${parsedRepo.repoFullName}`
-    const cached = await getCachedJson<RepoExistsCacheValue>(cache, cacheKey)
+    const cached = await getCachedJson<RepoExistsCacheValue>(
+      cache,
+      cacheKey,
+      metrics,
+      'repo_exists'
+    )
 
     if (cached !== null) {
       if (cached.exists) {
@@ -121,23 +151,35 @@ export function createGitHubClient (
     )
 
     if (response.ok) {
+      recordMetric(() => {
+        metrics?.githubRequest('repo_exists', 'success')
+      })
       await setCachedJson(cache, cacheKey, {
         exists: true
-      }, cacheTtlSeconds)
+      }, cacheTtlSeconds, metrics, 'repo_exists')
       return
     }
 
     if (isRateLimitedResponse(response)) {
+      recordMetric(() => {
+        metrics?.githubRequest('repo_exists', 'rate_limited')
+      })
       throw new GitHubRateLimitedError()
     }
 
     if (response.status === 404) {
+      recordMetric(() => {
+        metrics?.githubRequest('repo_exists', 'not_found')
+      })
       await setCachedJson(cache, cacheKey, {
         exists: false
-      }, cacheTtlSeconds)
+      }, cacheTtlSeconds, metrics, 'repo_exists')
       throw new GitHubRepositoryNotFoundError(parsedRepo.repoFullName)
     }
 
+    recordMetric(() => {
+      metrics?.githubRequest('repo_exists', 'error')
+    })
     throw new Error(
       `GitHub repository lookup failed with status ${String(response.status)}`
     )
@@ -148,7 +190,12 @@ export function createGitHubClient (
     async getLatestReleaseTag (repoFullName: string) {
       const parsedRepo = parseRepoRef(repoFullName)
       const cacheKey = `github:latest-release:v1:${parsedRepo.repoFullName}`
-      const cached = await getCachedJson<LatestReleaseCacheValue>(cache, cacheKey)
+      const cached = await getCachedJson<LatestReleaseCacheValue>(
+        cache,
+        cacheKey,
+        metrics,
+        'latest_release'
+      )
 
       if (cached !== null) {
         return cached.tag
@@ -165,28 +212,43 @@ export function createGitHubClient (
         const payload: unknown = await response.json()
 
         if (!hasTagName(payload)) {
+          recordMetric(() => {
+            metrics?.githubRequest('latest_release', 'invalid_response')
+          })
           throw new Error('GitHub latest release response is missing tag_name')
         }
 
+        recordMetric(() => {
+          metrics?.githubRequest('latest_release', 'success')
+        })
         await setCachedJson(cache, cacheKey, {
           tag: payload.tag_name
-        }, cacheTtlSeconds)
+        }, cacheTtlSeconds, metrics, 'latest_release')
 
         return payload.tag_name
       }
 
       if (isRateLimitedResponse(response)) {
+        recordMetric(() => {
+          metrics?.githubRequest('latest_release', 'rate_limited')
+        })
         throw new GitHubRateLimitedError()
       }
 
       if (response.status === 404) {
+        recordMetric(() => {
+          metrics?.githubRequest('latest_release', 'not_found')
+        })
         await assertRepositoryExists(parsedRepo.repoFullName)
         await setCachedJson(cache, cacheKey, {
           tag: null
-        }, cacheTtlSeconds)
+        }, cacheTtlSeconds, metrics, 'latest_release')
         return null
       }
 
+      recordMetric(() => {
+        metrics?.githubRequest('latest_release', 'error')
+      })
       throw new Error(
         `GitHub latest release lookup failed with status ${String(response.status)}`
       )

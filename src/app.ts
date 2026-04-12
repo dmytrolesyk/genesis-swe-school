@@ -3,6 +3,7 @@ import Fastify, { type FastifyServerOptions } from 'fastify'
 import releaseScheduler, {
   type ReleaseSchedulerOptions
 } from './features/releases/scheduler.ts'
+import metricsPlugin from './features/metrics/plugin.ts'
 import subscriptionsRoutes, {
   type SubscriptionRoutesOptions
 } from './features/subscriptions/routes.ts'
@@ -34,6 +35,7 @@ export function buildApp (
   app.register(databasePlugin)
   app.register(cachePlugin)
   app.register(errorsPlugin)
+  app.register(metricsPlugin)
   app.register(webRoutes, featureOptions.web ?? {})
   app.register(async function apiRoutes (api) {
     await api.register(apiKeyAuthPlugin)

@@ -58,6 +58,13 @@ function createCacheStub () {
   }
 }
 
+function createGitHubMetricsMock () {
+  return {
+    githubCache: vi.fn(),
+    githubRequest: vi.fn()
+  }
+}
+
 describe('parseRepoRef', () => {
   it('normalizes a valid owner/repo string', () => {
     expect(parseRepoRef(' openai/openai-node ')).toEqual({
@@ -99,6 +106,7 @@ describe('createGitHubClient', () => {
 
   it('uses cached repository-exists results without fetching GitHub', async () => {
     const cache = createCacheStub()
+    const metrics = createGitHubMetricsMock()
     cache.values.set('github:repo-exists:v1:openai/openai-node', {
       exists: true
     })
@@ -106,7 +114,8 @@ describe('createGitHubClient', () => {
     const client = createGitHubClient({
       cache: cache.implementation,
       cacheTtlSeconds: 600,
-      fetch: fetchMock
+      fetch: fetchMock,
+      metrics
     })
 
     await expect(client.assertRepositoryExists('openai/openai-node')).resolves.toBeUndefined()
@@ -115,6 +124,8 @@ describe('createGitHubClient', () => {
     expect(cache.getJson).toHaveBeenCalledWith(
       'github:repo-exists:v1:openai/openai-node'
     )
+    expect(metrics.githubCache).toHaveBeenCalledWith('repo_exists', 'hit')
+    expect(metrics.githubRequest).not.toHaveBeenCalled()
   })
 
   it('uses cached repository-not-found results without fetching GitHub', async () => {
@@ -137,14 +148,18 @@ describe('createGitHubClient', () => {
 
   it('caches successful repository-exists lookups', async () => {
     const cache = createCacheStub()
+    const metrics = createGitHubMetricsMock()
     const client = createGitHubClient({
       cache: cache.implementation,
       cacheTtlSeconds: 600,
-      fetch: vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200)))
+      fetch: vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200))),
+      metrics
     })
 
     await expect(client.assertRepositoryExists('openai/openai-node')).resolves.toBeUndefined()
 
+    expect(metrics.githubCache).toHaveBeenCalledWith('repo_exists', 'miss')
+    expect(metrics.githubRequest).toHaveBeenCalledWith('repo_exists', 'success')
     expect(cache.setJson).toHaveBeenCalledWith(
       'github:repo-exists:v1:openai/openai-node',
       {
@@ -191,6 +206,7 @@ describe('createGitHubClient', () => {
 
   it('uses cached latest-release results without fetching GitHub', async () => {
     const cache = createCacheStub()
+    const metrics = createGitHubMetricsMock()
     cache.values.set('github:latest-release:v1:openai/openai-node', {
       tag: 'v2.0.0'
     })
@@ -205,11 +221,14 @@ describe('createGitHubClient', () => {
     const client = createGitHubClient({
       cache: cache.implementation,
       cacheTtlSeconds: 600,
-      fetch: fetchMock
+      fetch: fetchMock,
+      metrics
     })
 
     await expect(client.getLatestReleaseTag('openai/openai-node')).resolves.toBe('v2.0.0')
     expect(fetchMock).not.toHaveBeenCalled()
+    expect(metrics.githubCache).toHaveBeenCalledWith('latest_release', 'hit')
+    expect(metrics.githubRequest).not.toHaveBeenCalled()
   })
 
   it('uses cached no-release results without fetching GitHub', async () => {

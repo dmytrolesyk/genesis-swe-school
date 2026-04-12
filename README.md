@@ -147,6 +147,20 @@ GitHub repository and latest-release lookups are cached in Redis for 10 minutes
 by default. If Redis is unavailable, the app logs a warning and continues with
 uncached GitHub requests.
 
+## Metrics
+
+Prometheus metrics are exposed at `/metrics` and require the same `x-api-key`
+header as protected API routes:
+
+```bash
+curl 'http://localhost:3000/metrics' \
+  --header 'x-api-key: local-dev-key'
+```
+
+Metric labels use low-cardinality operation, result, method, route, and status
+values. Emails, repository names, tokens, API keys, database URLs, Redis URLs,
+and SMTP credentials are never used as labels.
+
 ## Manual smoke test
 
 Create a subscription:
