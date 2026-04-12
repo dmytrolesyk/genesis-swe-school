@@ -7,6 +7,7 @@ A Fastify monolith that lets users subscribe to GitHub release notifications by 
 ## Architecture
 
 - Fastify serves the REST API under `/api`.
+- Fastify also serves the public subscription page at `/`.
 - PostgreSQL stores repositories, subscriptions, release state, and applied migrations.
 - SQL migrations run automatically on service startup.
 - Local development sends confirmation and release emails through Mailpit SMTP.
@@ -65,7 +66,10 @@ instead of opening an SMTP connection. Other hosts keep using SMTP.
    pnpm dev
    ```
 
-The API listens on `http://localhost:3000`, PostgreSQL is exposed on `localhost:5432`, and Mailpit is available at `http://localhost:8025`.
+The public subscription page is available at `http://localhost:3000/`.
+The protected API listens under `http://localhost:3000/api`, PostgreSQL is
+exposed on `localhost:5432`, and Mailpit is available at
+`http://localhost:8025`.
 
 ## Quality checks
 
@@ -111,6 +115,8 @@ docker compose down -v
 The app can run as one Railway service with a managed Postgres service.
 The current production project uses the public app origin
 `https://sfe-school-production.up.railway.app`.
+The same origin serves the public page at `/`, public confirmation and
+unsubscribe links, protected `/api/*` routes, and protected `/metrics`.
 
 Required app variables:
 
@@ -163,7 +169,22 @@ and SMTP credentials are never used as labels.
 
 ## Manual smoke test
 
-Create a subscription:
+Open the public page:
+
+```bash
+curl 'http://localhost:3000/'
+```
+
+Create a subscription through the public form route:
+
+```bash
+curl --request POST \
+  --url http://localhost:3000/subscribe \
+  --header 'content-type: application/x-www-form-urlencoded' \
+  --data 'email=alice%40example.com&repo=nodejs%2Fnode'
+```
+
+Create a subscription through the protected API:
 
 ```bash
 curl --request POST \
@@ -194,6 +215,8 @@ Swagger UI remains useful for checking request and response shapes:
 
 ## Confirmation and release scanning flow
 
+- `GET /` renders the public subscription page.
+- `POST /subscribe` accepts browser form submissions without an API key.
 - `POST /api/subscribe` validates the GitHub repository, creates a pending subscription, and sends a confirmation email.
 - `/api/*` routes require the configured `x-api-key` header.
 - Public email clicks use `GET /confirm/{token}` and `GET /unsubscribe/{token}` without an API key.

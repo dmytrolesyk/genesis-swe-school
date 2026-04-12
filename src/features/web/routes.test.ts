@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { buildApp } from '../../app.ts'
 import type { SubscriptionService } from '../subscriptions/service.ts'
+import { InvalidRepoFormatError } from '../../shared/errors.ts'
 
 const validToken = '00000000-0000-4000-8000-000000000001'
 
@@ -18,7 +19,90 @@ function createServiceStub (): SubscriptionService {
   }
 }
 
-describe('public token routes', () => {
+describe('public web routes', () => {
+  it('renders the subscription home page without an API key', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('Release Notifier XP')
+    expect(response.body).toContain('Track a GitHub repo. Get a tiny electronic postcard when it ships.')
+    expect(response.body).toContain('Repository')
+    expect(response.body).toContain('Email')
+    expect(response.body).toContain('Start Watching')
+    expect(response.body).toContain('Status')
+    await app.close()
+  })
+
+  it('submits form fields to the subscription service', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded'
+      },
+      method: 'POST',
+      payload: 'email=user%40example.com&repo=nodejs%2Fnode',
+      url: '/subscribe'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('Inbox armed. Check your email to confirm the subscription.')
+    expect(service.subscribe).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      repo: 'nodejs/node'
+    })
+    await app.close()
+  })
+
+  it('renders an HTML error state when subscription fails', async () => {
+    const service = createServiceStub()
+    service.subscribe = vi.fn(() => Promise.reject(
+      new InvalidRepoFormatError('nodejs')
+    ))
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded'
+      },
+      method: 'POST',
+      payload: 'email=user%40example.com&repo=nodejs',
+      url: '/subscribe'
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('Status')
+    expect(response.body).toContain('Invalid repository format')
+    expect(response.body).toContain('value="user@example.com"')
+    expect(response.body).toContain('value="nodejs"')
+    await app.close()
+  })
+
   it('confirms subscriptions without an API key', async () => {
     const service = createServiceStub()
     const app = buildApp({}, {

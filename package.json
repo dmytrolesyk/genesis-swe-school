@@ -16,6 +16,7 @@
   "packageManager": "pnpm@10.24.0",
   "type": "module",
   "dependencies": {
+    "@fastify/formbody": "^8.0.2",
     "@fastify/postgres": "^6.0.2",
     "@fastify/sensible": "^6.0.4",
     "@fastify/type-provider-typebox": "^6.1.0",

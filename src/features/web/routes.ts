@@ -14,7 +14,10 @@ import {
 } from '../subscriptions/service.ts'
 import { createMailer } from '../../infra/email/mailer.ts'
 import { AppError } from '../../shared/errors.ts'
-import { renderTokenResultPage } from './templates.ts'
+import {
+  renderHomePage,
+  renderTokenResultPage
+} from './templates.ts'
 
 export type WebRoutesOptions = FastifyPluginOptions & {
   service?: SubscriptionService
@@ -22,6 +25,40 @@ export type WebRoutesOptions = FastifyPluginOptions & {
 
 type TokenParams = {
   token: string
+}
+
+type SubscribeFormBody = {
+  email: string
+  repo: string
+}
+
+function readFormField (
+  body: Record<string, unknown>,
+  fieldName: keyof SubscribeFormBody
+): string {
+  const value = body[fieldName]
+
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'string' ? value[0] : ''
+  }
+
+  return typeof value === 'string' ? value : ''
+}
+
+function readSubscribeFormBody (body: unknown): SubscribeFormBody {
+  if (typeof body !== 'object' || body === null) {
+    return {
+      email: '',
+      repo: ''
+    }
+  }
+
+  const formBody = body as Record<string, unknown>
+
+  return {
+    email: readFormField(formBody, 'email'),
+    repo: readFormField(formBody, 'repo')
+  }
 }
 
 function createDefaultSubscriptionService (
@@ -32,6 +69,7 @@ function createDefaultSubscriptionService (
     githubClient: createGitHubClient({
       cache: fastify.cache,
       cacheTtlSeconds: fastify.config.GITHUB_CACHE_TTL_SECONDS,
+      metrics: fastify.metrics,
       token: fastify.config.GITHUB_TOKEN
     }),
     mailer: createMailer({
@@ -41,6 +79,7 @@ function createDefaultSubscriptionService (
       port: fastify.config.SMTP_PORT,
       user: fastify.config.SMTP_USER
     }),
+    metrics: fastify.metrics,
     repository: createSubscriptionRepository(fastify.pg)
   })
 }
@@ -59,6 +98,45 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
   done
 ) => {
   const service = options.service ?? createDefaultSubscriptionService(fastify)
+
+  fastify.get('/', async (_request, reply) => {
+    return await reply.type('text/html').send(renderHomePage({}))
+  })
+
+  fastify.post('/subscribe', async (request, reply) => {
+    const body = readSubscribeFormBody(request.body)
+
+    try {
+      await service.subscribe({
+        email: body.email,
+        repo: body.repo
+      })
+
+      return await reply.type('text/html').send(renderHomePage({
+        status: {
+          kind: 'success',
+          message: 'Inbox armed. Check your email to confirm the subscription.'
+        },
+        values: body
+      }))
+    } catch (error) {
+      const message = getErrorPageMessage(
+        error,
+        'Something went sideways while dialing GitHub.'
+      )
+
+      return reply
+        .code(getErrorPageStatusCode(error))
+        .type('text/html')
+        .send(renderHomePage({
+          status: {
+            kind: 'error',
+            message
+          },
+          values: body
+        }))
+    }
+  })
 
   fastify.get('/confirm/:token', async (request, reply) => {
     const { token } = request.params as TokenParams
@@ -109,5 +187,5 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
 
 export default fp(webRoutesPlugin, {
   name: 'web-routes',
-  dependencies: ['cache', 'config', 'database', 'errors']
+  dependencies: ['cache', 'config', 'database', 'errors', 'metrics']
 })

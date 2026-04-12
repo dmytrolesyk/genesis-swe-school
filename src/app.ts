@@ -1,4 +1,5 @@
 import Fastify, { type FastifyServerOptions } from 'fastify'
+import fastifyFormbody from '@fastify/formbody'
 
 import releaseScheduler, {
   type ReleaseSchedulerOptions
@@ -36,6 +37,7 @@ export function buildApp (
   app.register(cachePlugin)
   app.register(errorsPlugin)
   app.register(metricsPlugin)
+  app.register(fastifyFormbody)
   app.register(webRoutes, featureOptions.web ?? {})
   app.register(async function apiRoutes (api) {
     await api.register(apiKeyAuthPlugin)

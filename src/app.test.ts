@@ -24,7 +24,8 @@ describe('buildApp', () => {
       url: '/'
     })
 
-    expect(response.statusCode).toBe(404)
+    expect(response.statusCode).toBe(200)
+    expect(response.body).toContain('Release Notifier XP')
   })
 
   it('registers the config, database, and cache decorators', async () => {
