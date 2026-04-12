@@ -9,6 +9,7 @@ RUN corepack enable && pnpm install --frozen-lockfile --prod --ignore-scripts
 
 COPY db ./db
 COPY src ./src
+COPY static ./static
 
 EXPOSE 3000
 
