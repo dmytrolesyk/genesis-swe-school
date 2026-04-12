@@ -203,7 +203,7 @@ railway service status --all --json
 If not linked and no suitable project exists:
 
 ```bash
-railway init --name sfe-school
+railway init --name swe-school
 ```
 
 Expected:
