@@ -358,6 +358,27 @@ describe('GET /api/subscriptions', () => {
     vi.restoreAllMocks()
   })
 
+  it('requires an API key for protected subscription lookups', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      subscriptions: {
+        service
+      }
+    })
+
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/subscriptions?email=user@example.com'
+    })
+
+    expect(response.statusCode).toBe(401)
+    expect(service.getSubscriptionsByEmail).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
   it('returns 400 for invalid email queries', async () => {
     const service = createServiceStub()
     const app = buildApp({}, {

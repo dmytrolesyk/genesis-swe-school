@@ -29,6 +29,10 @@ type SubscribeFormBody = {
   repo: string
 }
 
+type SubscriptionsQuery = {
+  email?: string
+}
+
 type HomePageStatus = {
   kind: 'error' | 'idle' | 'success'
   message: string
@@ -72,6 +76,24 @@ function readSubscribeFormBody (body: unknown): SubscribeFormBody {
     email: readFormField(formBody, 'email'),
     repo: readFormField(formBody, 'repo')
   }
+}
+
+function readEmailQuery (query: unknown): string | null {
+  if (typeof query !== 'object' || query === null || !('email' in query)) {
+    return null
+  }
+
+  const email = (query as SubscriptionsQuery).email
+
+  if (typeof email !== 'string') {
+    return null
+  }
+
+  return email
+}
+
+function isEmailLike (email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 function createDefaultSubscriptionService (
@@ -165,6 +187,22 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
       },
       values: {}
     })
+  })
+
+  fastify.get('/subscriptions', async (request, reply) => {
+    const email = readEmailQuery(request.query)
+
+    if (email === null || !isEmailLike(email)) {
+      return await reply.code(400).send({
+        error: 'BAD_REQUEST',
+        message: 'A valid email query is required',
+        statusCode: 400
+      })
+    }
+
+    const subscriptions = await service.getSubscriptionsByEmail(email)
+
+    return await reply.code(200).send(subscriptions)
   })
 
   fastify.post('/subscribe', async (request, reply) => {

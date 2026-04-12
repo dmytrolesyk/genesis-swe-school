@@ -5,6 +5,14 @@ import type { SubscriptionService } from '../subscriptions/service.ts'
 import { InvalidRepoFormatError } from '../../shared/errors.ts'
 
 const validToken = '00000000-0000-4000-8000-000000000001'
+const listedSubscriptions = [
+  {
+    confirmed: true,
+    email: 'user@example.com',
+    last_seen_tag: 'v1.0.0',
+    repo: 'nodejs/node'
+  }
+]
 
 function createResolvedVoidMock () {
   return vi.fn(() => Promise.resolve())
@@ -100,6 +108,46 @@ describe('public web routes', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.headers['content-type']).toContain('image/jpeg')
+    await app.close()
+  })
+
+  it('returns subscriptions by email without an API key for the start menu', async () => {
+    const service = createServiceStub()
+    service.getSubscriptionsByEmail = vi.fn(() => Promise.resolve(listedSubscriptions))
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/subscriptions?email=user@example.com'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual(listedSubscriptions)
+    expect(service.getSubscriptionsByEmail).toHaveBeenCalledWith('user@example.com')
+    await app.close()
+  })
+
+  it('rejects invalid public subscription lookup emails', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/subscriptions?email=not-an-email'
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(service.getSubscriptionsByEmail).not.toHaveBeenCalled()
     await app.close()
   })
 
