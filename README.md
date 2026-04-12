@@ -1,5 +1,7 @@
 # GitHub Release Notification API
 
+The web interace can be found here: [https://swe-school.dmytrolesyk.dev/](https://swe-school.dmytrolesyk.dev/)
+
 A Fastify monolith that lets users subscribe to GitHub release notifications by email.
 
 `swagger.yaml` is the contract source for the assignment. Runtime behavior, requests, and responses should be checked against that file first.
@@ -18,22 +20,22 @@ A Fastify monolith that lets users subscribe to GitHub release notifications by 
 
 Copy `.env.example` to `.env` before running locally.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `HOST` | `0.0.0.0` | HTTP listen host |
-| `PORT` | `3000` | HTTP listen port |
-| `DATABASE_URL` | `postgres://postgres:postgres@localhost:5432/releases` | PostgreSQL connection string for local host-based development |
-| `APP_BASE_URL` | `http://localhost:3000` | Public base URL used in confirmation and unsubscribe links |
-| `API_KEY` | `local-dev-key` | Required `x-api-key` value for protected `/api` routes |
-| `SCAN_INTERVAL_MS` | `60000` | Release scanner polling interval in milliseconds |
-| `GITHUB_TOKEN` | empty | Optional GitHub token for higher API rate limits |
-| `REDIS_URL` | `redis://localhost:6379` | Optional Redis cache URL for GitHub API responses |
-| `GITHUB_CACHE_TTL_SECONDS` | `600` | GitHub API cache TTL in seconds |
-| `SMTP_HOST` | `localhost` | SMTP host for outgoing mail |
-| `SMTP_PORT` | `1025` | SMTP port for outgoing mail |
-| `SMTP_USER` | empty | Optional SMTP username |
-| `SMTP_PASS` | empty | Optional SMTP password |
-| `SMTP_FROM` | `noreply@example.com` | From address used in sent emails |
+| Variable                     | Default                                                  | Purpose                                                       |
+| ---------------------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
+| `HOST`                     | `0.0.0.0`                                              | HTTP listen host                                              |
+| `PORT`                     | `3000`                                                 | HTTP listen port                                              |
+| `DATABASE_URL`             | `postgres://postgres:postgres@localhost:5432/releases` | PostgreSQL connection string for local host-based development |
+| `APP_BASE_URL`             | `http://localhost:3000`                                | Public base URL used in confirmation and unsubscribe links    |
+| `API_KEY`                  | `local-dev-key`                                        | Required `x-api-key` value for protected `/api` routes    |
+| `SCAN_INTERVAL_MS`         | `60000`                                                | Release scanner polling interval in milliseconds              |
+| `GITHUB_TOKEN`             | empty                                                    | Optional GitHub token for higher API rate limits              |
+| `REDIS_URL`                | `redis://localhost:6379`                               | Optional Redis cache URL for GitHub API responses             |
+| `GITHUB_CACHE_TTL_SECONDS` | `600`                                                  | GitHub API cache TTL in seconds                               |
+| `SMTP_HOST`                | `localhost`                                            | SMTP host for outgoing mail                                   |
+| `SMTP_PORT`                | `1025`                                                 | SMTP port for outgoing mail                                   |
+| `SMTP_USER`                | empty                                                    | Optional SMTP username                                        |
+| `SMTP_PASS`                | empty                                                    | Optional SMTP password                                        |
+| `SMTP_FROM`                | `noreply@example.com`                                  | From address used in sent emails                              |
 
 `docker-compose.yml` overrides the database and SMTP hostnames for the containerized `app` service, so the `.env.example` defaults stay convenient for `pnpm dev` on the host machine.
 When `SMTP_HOST=smtp.resend.com` and `SMTP_USER=resend`, the app treats
@@ -47,19 +49,16 @@ instead of opening an SMTP connection. Other hosts keep using SMTP.
    ```bash
    pnpm install
    ```
-
 2. Copy the example environment file:
 
    ```bash
    cp .env.example .env
    ```
-
 3. Start local dependencies:
 
    ```bash
    docker compose up -d postgres mailpit
    ```
-
 4. Start the API:
 
    ```bash
@@ -123,20 +122,20 @@ unsubscribe links, protected `/api/*` routes, and protected `/metrics`.
 
 Required app variables:
 
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `HOST` | `0.0.0.0` |
-| `APP_BASE_URL` | Public Railway app URL, for example `https://sfe-school-production.up.railway.app` |
-| `API_KEY` | Long random secret for protected API requests |
-| `SCAN_INTERVAL_MS` | `60000` |
-| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
-| `GITHUB_CACHE_TTL_SECONDS` | `600` |
-| `SMTP_HOST` | `smtp.resend.com` |
-| `SMTP_PORT` | `587` (kept for config compatibility; Resend production sends over HTTPS) |
-| `SMTP_USER` | `resend` |
-| `SMTP_PASS` | Resend API key |
-| `SMTP_FROM` | Verified Resend sender, for example `GitHub Release Notifications <notifications@your-domain>` |
+| Variable                     | Value                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`             | `${{Postgres.DATABASE_URL}}`                                                                   |
+| `HOST`                     | `0.0.0.0`                                                                                      |
+| `APP_BASE_URL`             | Public Railway app URL, for example `https://sfe-school-production.up.railway.app`             |
+| `API_KEY`                  | Long random secret for protected API requests                                                    |
+| `SCAN_INTERVAL_MS`         | `60000`                                                                                        |
+| `REDIS_URL`                | `${{Redis.REDIS_URL}}`                                                                         |
+| `GITHUB_CACHE_TTL_SECONDS` | `600`                                                                                          |
+| `SMTP_HOST`                | `smtp.resend.com`                                                                              |
+| `SMTP_PORT`                | `587` (kept for config compatibility; Resend production sends over HTTPS)                      |
+| `SMTP_USER`                | `resend`                                                                                       |
+| `SMTP_PASS`                | Resend API key                                                                                   |
+| `SMTP_FROM`                | Verified Resend sender, for example `GitHub Release Notifications <notifications@your-domain>` |
 
 Do not set `PORT`; Railway supplies it at runtime. Keep Postgres private by
 using the `Postgres.DATABASE_URL` reference from the app service rather than a
@@ -207,7 +206,6 @@ Then:
    curl 'http://localhost:3000/api/subscriptions?email=alice@example.com' \
      --header 'x-api-key: local-dev-key'
    ```
-
 4. Follow the public `/unsubscribe/{token}` link from the email to remove the subscription.
 
 Swagger UI remains useful for checking request and response shapes:
