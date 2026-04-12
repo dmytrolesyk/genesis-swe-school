@@ -5,6 +5,14 @@ import type { SubscriptionService } from '../subscriptions/service.ts'
 import { InvalidRepoFormatError } from '../../shared/errors.ts'
 
 const validToken = '00000000-0000-4000-8000-000000000001'
+const listedSubscriptions = [
+  {
+    confirmed: true,
+    email: 'user@example.com',
+    last_seen_tag: 'v1.0.0',
+    repo: 'nodejs/node'
+  }
+]
 
 function createResolvedVoidMock () {
   return vi.fn(() => Promise.resolve())
@@ -38,10 +46,110 @@ describe('public web routes', () => {
     expect(response.headers['content-type']).toContain('text/html')
     expect(response.body).toContain('Release Notifier XP')
     expect(response.body).toContain('Track a GitHub repo. Get a tiny electronic postcard when it ships.')
+    expect(response.body).toContain('href="/assets/styles/app.css"')
+    expect(response.body).toContain('src="/assets/scripts/app.js"')
+    expect(response.body).toContain('id="xp-taskbar"')
+    expect(response.body).toContain('id="xp-start-menu"')
     expect(response.body).toContain('Repository')
     expect(response.body).toContain('Email')
     expect(response.body).toContain('Start Watching')
     expect(response.body).toContain('Status')
+    await app.close()
+  })
+
+  it('serves the public stylesheet', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/styles/app.css'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/css')
+    await app.close()
+  })
+
+  it('serves the browser script', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/scripts/app.js'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('javascript')
+    expect(response.body).toContain('localStorage')
+    expect(response.body).toContain('Load subscriptions')
+    await app.close()
+  })
+
+  it('serves the background image', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/images/bg.jpg'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('image/jpeg')
+    await app.close()
+  })
+
+  it('returns subscriptions by email without an API key for the start menu', async () => {
+    const service = createServiceStub()
+    service.getSubscriptionsByEmail = vi.fn(() => Promise.resolve(listedSubscriptions))
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/subscriptions?email=user@example.com'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual(listedSubscriptions)
+    expect(service.getSubscriptionsByEmail).toHaveBeenCalledWith('user@example.com')
+    await app.close()
+  })
+
+  it('rejects invalid public subscription lookup emails', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/subscriptions?email=not-an-email'
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(service.getSubscriptionsByEmail).not.toHaveBeenCalled()
     await app.close()
   })
 

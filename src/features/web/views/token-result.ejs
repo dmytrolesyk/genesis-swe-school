@@ -1,0 +1,23 @@
+<section class="window" aria-label="Release Notifier XP">
+  <div class="title-bar">
+    <span>Release Notifier XP</span>
+    <span class="window-buttons" aria-hidden="true">
+      <span class="window-button">_</span>
+      <span class="window-button">x</span>
+    </span>
+  </div>
+  <div class="window-body">
+    <div class="masthead">
+      <img class="brand-icon" src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub mark">
+      <div>
+        <h1><%= heading %></h1>
+        <p><%= message %></p>
+      </div>
+    </div>
+    <div class="status" data-kind="<%= state === 'success' ? 'success' : 'error' %>" role="status">
+      <strong>Status</strong>
+      <span><%= state === 'success' ? 'All set.' : 'Needs attention.' %></span>
+    </div>
+    <p class="token-actions"><a href="/">Back to Release Notifier XP</a></p>
+  </div>
+</section>

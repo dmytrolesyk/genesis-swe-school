@@ -1,0 +1,29 @@
+<section class="window" aria-label="Release Notifier XP">
+  <div class="title-bar">
+    <span>Release Notifier XP</span>
+    <span class="window-buttons" aria-hidden="true">
+      <span class="window-button">_</span>
+      <span class="window-button">x</span>
+    </span>
+  </div>
+  <div class="window-body">
+    <div class="masthead">
+      <img class="brand-icon" src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub mark">
+      <div>
+        <h1>Release Notifier XP</h1>
+        <p>Track a GitHub repo. Get a tiny electronic postcard when it ships.</p>
+      </div>
+    </div>
+    <form action="/subscribe" method="post" data-subscribe-form>
+      <label for="repo">Repository</label>
+      <input id="repo" name="repo" type="text" autocomplete="off" placeholder="nodejs/node" value="<%= values.repo ?? '' %>" required>
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" value="<%= values.email ?? '' %>" required>
+      <button type="submit">Start Watching</button>
+    </form>
+    <div class="status" data-kind="<%= status.kind %>" role="status">
+      <strong>Status</strong>
+      <span><%= status.message %></span>
+    </div>
+  </div>
+</section>

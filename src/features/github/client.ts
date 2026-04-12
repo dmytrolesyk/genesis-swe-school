@@ -121,7 +121,7 @@ export function createGitHubClient (
 ): GitHubClient {
   const cache = options.cache ?? nullCache
   const cacheTtlSeconds = options.cacheTtlSeconds ?? defaultGitHubCacheTtlSeconds
-  const fetchImplementation = options.fetch ?? globalThis.fetch
+  const fetch = options.fetch ?? globalThis.fetch
   const headers = createHeaders(options.token)
   const metrics = options.metrics
 
@@ -143,7 +143,7 @@ export function createGitHubClient (
       throw new GitHubRepositoryNotFoundError(parsedRepo.repoFullName)
     }
 
-    const response = await fetchImplementation(
+    const response = await fetch(
       `https://api.github.com/repos/${parsedRepo.repoFullName}`,
       {
         headers
@@ -201,7 +201,7 @@ export function createGitHubClient (
         return cached.tag
       }
 
-      const response = await fetchImplementation(
+      const response = await fetch(
         `https://api.github.com/repos/${parsedRepo.repoFullName}/releases/latest`,
         {
           headers

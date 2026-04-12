@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/assets/styles/app.css">
+  <script type="module" src="/assets/scripts/app.js"></script>
+</head>
+<body>
+  <main class="desktop">
+    <%- body %>
+  </main>
+  <aside class="start-menu" id="xp-start-menu" hidden>
+    <div class="start-menu__header">
+      <strong>Release Notifier XP</strong>
+      <span data-start-email>No email saved</span>
+    </div>
+    <nav class="start-menu__nav" aria-label="Start menu">
+      <button type="button" data-panel-trigger="subscriptions">My Subscriptions</button>
+      <button type="button" data-panel-trigger="account">Account</button>
+      <button type="button" data-panel-trigger="preferences">Preferences</button>
+      <button type="button" data-panel-trigger="about">About</button>
+    </nav>
+    <section class="start-panel" data-panel="subscriptions">
+      <h2>My Subscriptions</h2>
+      <p data-subscription-summary>Save an email, then load subscriptions.</p>
+      <label for="menu-email">Email</label>
+      <input id="menu-email" name="menu-email" type="email" autocomplete="email">
+      <button type="button" data-save-email>Save email</button>
+      <button type="button" data-load-subscriptions>Load subscriptions</button>
+      <div class="subscription-list" data-subscription-list></div>
+    </section>
+    <section class="start-panel" data-panel="account" hidden>
+      <h2>Account</h2>
+      <p data-account-summary>No saved email yet.</p>
+      <label for="account-email">Saved email</label>
+      <input id="account-email" name="account-email" type="email" autocomplete="email">
+      <button type="button" data-save-account>Email looks right</button>
+      <button type="button" data-clear-email>Clear email</button>
+      <button type="button" data-clear-local-data>Clear local data</button>
+    </section>
+    <section class="start-panel" data-panel="preferences" hidden>
+      <h2>Preferences</h2>
+      <label>
+        Clock format
+        <select data-preference="clockFormat">
+          <option value="24">24-hour</option>
+          <option value="12">12-hour</option>
+        </select>
+      </label>
+      <label>
+        Background dim
+        <select data-preference="backgroundDim">
+          <option value="normal">Normal</option>
+          <option value="strong">Stronger</option>
+        </select>
+      </label>
+      <label>
+        Motion
+        <select data-preference="motion">
+          <option value="normal">Normal</option>
+          <option value="reduced">Reduced</option>
+        </select>
+      </label>
+      <label>
+        Menu density
+        <select data-preference="density">
+          <option value="cozy">Cozy</option>
+          <option value="compact">Compact</option>
+        </select>
+      </label>
+    </section>
+    <section class="start-panel" data-panel="about" hidden>
+      <h2>About</h2>
+      <p>Subscriptions start after email confirmation. Pending repos may appear until confirmed.</p>
+      <p>Unsubscribe links arrive by email. This taskbar stores only local browser preferences and a saved email.</p>
+    </section>
+  </aside>
+  <footer class="taskbar" id="xp-taskbar">
+    <button class="start-button" type="button" aria-controls="xp-start-menu" aria-expanded="false" data-start-button>Start</button>
+    <div class="taskbar__tray">
+      <span data-clock>--:--</span>
+    </div>
+  </footer>
+</body>
+</html>
