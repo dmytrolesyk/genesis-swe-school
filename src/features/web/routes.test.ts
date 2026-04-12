@@ -90,6 +90,8 @@ describe('public web routes', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.headers['content-type']).toContain('javascript')
+    expect(response.body).toContain('localStorage')
+    expect(response.body).toContain('Load subscriptions')
     await app.close()
   })
 
