@@ -82,6 +82,9 @@ pnpm test
 ## Continuous integration
 
 GitHub Actions runs `pnpm lint`, `pnpm typecheck`, and `pnpm test` on every push to `main` and on pull requests.
+Pushes to `main` deploy to Railway after those checks pass. The deploy job
+uses the `RAILWAY_TOKEN` GitHub Actions secret and targets the production
+Railway project, environment, and app service directly.
 
 ## Run the full stack in Docker
 
