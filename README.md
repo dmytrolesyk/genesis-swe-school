@@ -116,7 +116,7 @@ docker compose down -v
 
 The app can run as one Railway service with a managed Postgres service.
 The current production project uses the public app origin
-`https://sfe-school-production.up.railway.app`.
+`https://swe-school-production.up.railway.app`.
 The same origin serves the public page at `/`, public confirmation and
 unsubscribe links, protected `/api/*` routes, and protected `/metrics`.
 
@@ -126,7 +126,7 @@ Required app variables:
 | ---------------------------- | ------------------------------------------------------------------------------------------------ |
 | `DATABASE_URL`             | `${{Postgres.DATABASE_URL}}`                                                                   |
 | `HOST`                     | `0.0.0.0`                                                                                      |
-| `APP_BASE_URL`             | Public Railway app URL, for example `https://sfe-school-production.up.railway.app`             |
+| `APP_BASE_URL`             | Public Railway app URL, for example `https://swe-school-production.up.railway.app`             |
 | `API_KEY`                  | Long random secret for protected API requests                                                    |
 | `SCAN_INTERVAL_MS`         | `60000`                                                                                        |
 | `REDIS_URL`                | `${{Redis.REDIS_URL}}`                                                                         |
