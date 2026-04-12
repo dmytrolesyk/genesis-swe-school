@@ -35,3 +35,35 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    env:
+      RAILWAY_PROJECT_ID: 1088fbcc-581a-43fa-93dd-2f24a2e113b4
+      RAILWAY_SERVICE_ID: 5da1394b-edc3-496b-89d2-c21958ebcee4
+      RAILWAY_ENVIRONMENT_ID: 46a85d40-3b16-49b0-9761-35056836616f
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli
+
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up --ci \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT_ID" \
+            --service "$RAILWAY_SERVICE_ID"
