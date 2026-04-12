@@ -30,6 +30,8 @@ function createDefaultSubscriptionService (
   return createSubscriptionService({
     appBaseUrl: fastify.config.APP_BASE_URL,
     githubClient: createGitHubClient({
+      cache: fastify.cache,
+      cacheTtlSeconds: fastify.config.GITHUB_CACHE_TTL_SECONDS,
       token: fastify.config.GITHUB_TOKEN
     }),
     mailer: createMailer({
@@ -107,5 +109,5 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
 
 export default fp(webRoutesPlugin, {
   name: 'web-routes',
-  dependencies: ['config', 'database', 'errors']
+  dependencies: ['cache', 'config', 'database', 'errors']
 })

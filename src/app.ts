@@ -10,6 +10,7 @@ import webRoutes, {
   type WebRoutesOptions
 } from './features/web/routes.ts'
 import apiKeyAuthPlugin from './plugins/api-key-auth.ts'
+import cachePlugin from './plugins/cache.ts'
 import configPlugin from './plugins/config.ts'
 import databasePlugin from './plugins/database.ts'
 import errorsPlugin from './plugins/errors.ts'
@@ -31,6 +32,7 @@ export function buildApp (
 
   app.register(configPlugin)
   app.register(databasePlugin)
+  app.register(cachePlugin)
   app.register(errorsPlugin)
   app.register(webRoutes, featureOptions.web ?? {})
   app.register(async function apiRoutes (api) {

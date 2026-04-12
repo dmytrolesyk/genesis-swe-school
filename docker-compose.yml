@@ -7,6 +7,8 @@ services:
         condition: service_healthy
       mailpit:
         condition: service_started
+      redis:
+        condition: service_started
     environment:
       HOST: 0.0.0.0
       PORT: 3000
@@ -15,6 +17,8 @@ services:
       API_KEY: ${API_KEY:-local-dev-key}
       SCAN_INTERVAL_MS: ${SCAN_INTERVAL_MS:-60000}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      GITHUB_CACHE_TTL_SECONDS: ${GITHUB_CACHE_TTL_SECONDS:-600}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_USER: ${SMTP_USER:-}
@@ -46,6 +50,12 @@ services:
     ports:
       - '1025:1025'
       - '8025:8025'
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
     restart: unless-stopped
 
   swagger-ui:

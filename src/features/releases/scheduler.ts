@@ -87,6 +87,8 @@ const releaseSchedulerPlugin: FastifyPluginCallback<ReleaseSchedulerOptions> = (
   done
 ) => {
   const githubClient = options.githubClient ?? createGitHubClient({
+    cache: fastify.cache,
+    cacheTtlSeconds: fastify.config.GITHUB_CACHE_TTL_SECONDS,
     token: fastify.config.GITHUB_TOKEN
   })
   const mailer = options.mailer ?? createMailer({
@@ -120,5 +122,5 @@ const releaseSchedulerPlugin: FastifyPluginCallback<ReleaseSchedulerOptions> = (
 
 export default fp(releaseSchedulerPlugin, {
   name: 'release-scheduler',
-  dependencies: ['config', 'database']
+  dependencies: ['cache', 'config', 'database']
 })

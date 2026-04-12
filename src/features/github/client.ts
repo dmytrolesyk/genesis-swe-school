@@ -2,6 +2,10 @@ import {
   GitHubRateLimitedError,
   GitHubRepositoryNotFoundError
 } from '../../shared/errors.ts'
+import {
+  nullCache,
+  type Cache
+} from '../../infra/cache/cache.ts'
 import { parseRepoRef } from './repo-ref.ts'
 
 export { parseRepoRef } from './repo-ref.ts'
@@ -14,9 +18,21 @@ export type GitHubClient = {
 }
 
 type CreateGitHubClientOptions = {
+  cache?: Cache
+  cacheTtlSeconds?: number
   fetch?: FetchLike
   token?: string
 }
+
+type RepoExistsCacheValue = {
+  exists: boolean
+}
+
+type LatestReleaseCacheValue = {
+  tag: string | null
+}
+
+const defaultGitHubCacheTtlSeconds = 600
 
 function createHeaders (token?: string): Record<string, string> {
   const headers: Record<string, string> = {
@@ -40,6 +56,28 @@ function isRateLimitedResponse (response: Response) {
   )
 }
 
+async function getCachedJson<T> (
+  cache: Cache,
+  key: string
+): Promise<T | null> {
+  try {
+    return await cache.getJson<T>(key)
+  } catch {
+    return null
+  }
+}
+
+async function setCachedJson (
+  cache: Cache,
+  key: string,
+  value: unknown,
+  ttlSeconds: number
+): Promise<void> {
+  try {
+    await cache.setJson(key, value, ttlSeconds)
+  } catch {}
+}
+
 function hasTagName (
   payload: unknown
 ): payload is {
@@ -57,11 +95,24 @@ function hasTagName (
 export function createGitHubClient (
   options: CreateGitHubClientOptions = {}
 ): GitHubClient {
+  const cache = options.cache ?? nullCache
+  const cacheTtlSeconds = options.cacheTtlSeconds ?? defaultGitHubCacheTtlSeconds
   const fetchImplementation = options.fetch ?? globalThis.fetch
   const headers = createHeaders(options.token)
 
   async function assertRepositoryExists (repoFullName: string) {
     const parsedRepo = parseRepoRef(repoFullName)
+    const cacheKey = `github:repo-exists:v1:${parsedRepo.repoFullName}`
+    const cached = await getCachedJson<RepoExistsCacheValue>(cache, cacheKey)
+
+    if (cached !== null) {
+      if (cached.exists) {
+        return
+      }
+
+      throw new GitHubRepositoryNotFoundError(parsedRepo.repoFullName)
+    }
+
     const response = await fetchImplementation(
       `https://api.github.com/repos/${parsedRepo.repoFullName}`,
       {
@@ -70,6 +121,9 @@ export function createGitHubClient (
     )
 
     if (response.ok) {
+      await setCachedJson(cache, cacheKey, {
+        exists: true
+      }, cacheTtlSeconds)
       return
     }
 
@@ -78,6 +132,9 @@ export function createGitHubClient (
     }
 
     if (response.status === 404) {
+      await setCachedJson(cache, cacheKey, {
+        exists: false
+      }, cacheTtlSeconds)
       throw new GitHubRepositoryNotFoundError(parsedRepo.repoFullName)
     }
 
@@ -90,6 +147,13 @@ export function createGitHubClient (
     assertRepositoryExists,
     async getLatestReleaseTag (repoFullName: string) {
       const parsedRepo = parseRepoRef(repoFullName)
+      const cacheKey = `github:latest-release:v1:${parsedRepo.repoFullName}`
+      const cached = await getCachedJson<LatestReleaseCacheValue>(cache, cacheKey)
+
+      if (cached !== null) {
+        return cached.tag
+      }
+
       const response = await fetchImplementation(
         `https://api.github.com/repos/${parsedRepo.repoFullName}/releases/latest`,
         {
@@ -104,6 +168,10 @@ export function createGitHubClient (
           throw new Error('GitHub latest release response is missing tag_name')
         }
 
+        await setCachedJson(cache, cacheKey, {
+          tag: payload.tag_name
+        }, cacheTtlSeconds)
+
         return payload.tag_name
       }
 
@@ -113,6 +181,9 @@ export function createGitHubClient (
 
       if (response.status === 404) {
         await assertRepositoryExists(parsedRepo.repoFullName)
+        await setCachedJson(cache, cacheKey, {
+          tag: null
+        }, cacheTtlSeconds)
         return null
       }
 

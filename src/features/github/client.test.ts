@@ -23,6 +23,41 @@ function createResponse (
   })
 }
 
+type Cache = {
+  getJson: <T>(key: string) => Promise<T | null>
+  setJson: (key: string, value: unknown, ttlSeconds: number) => Promise<void>
+}
+
+function createCacheStub () {
+  const values = new Map<string, unknown>()
+  const getJson = vi.fn<(key: string) => Promise<unknown>>((key) => {
+    return Promise.resolve(values.get(key) ?? null)
+  })
+  const setJson = vi.fn((
+    key: string,
+    value: unknown,
+    _ttlSeconds: number
+  ) => {
+    values.set(key, value)
+    return Promise.resolve()
+  })
+
+  return {
+    getJson,
+    setJson,
+    values,
+    implementation: {
+      async getJson<T> (key: string) {
+        const value = await getJson(key)
+        return value as T | null
+      },
+      async setJson (key: string, value: unknown, ttlSeconds: number) {
+        await setJson(key, value, ttlSeconds)
+      }
+    } satisfies Cache
+  }
+}
+
 describe('parseRepoRef', () => {
   it('normalizes a valid owner/repo string', () => {
     expect(parseRepoRef(' openai/openai-node ')).toEqual({
@@ -62,6 +97,63 @@ describe('createGitHubClient', () => {
     })
   })
 
+  it('uses cached repository-exists results without fetching GitHub', async () => {
+    const cache = createCacheStub()
+    cache.values.set('github:repo-exists:v1:openai/openai-node', {
+      exists: true
+    })
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200)))
+    const client = createGitHubClient({
+      cache: cache.implementation,
+      cacheTtlSeconds: 600,
+      fetch: fetchMock
+    })
+
+    await expect(client.assertRepositoryExists('openai/openai-node')).resolves.toBeUndefined()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(cache.getJson).toHaveBeenCalledWith(
+      'github:repo-exists:v1:openai/openai-node'
+    )
+  })
+
+  it('uses cached repository-not-found results without fetching GitHub', async () => {
+    const cache = createCacheStub()
+    cache.values.set('github:repo-exists:v1:openai/missing', {
+      exists: false
+    })
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200)))
+    const client = createGitHubClient({
+      cache: cache.implementation,
+      cacheTtlSeconds: 600,
+      fetch: fetchMock
+    })
+
+    await expect(client.assertRepositoryExists('openai/missing')).rejects.toBeInstanceOf(
+      GitHubRepositoryNotFoundError
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('caches successful repository-exists lookups', async () => {
+    const cache = createCacheStub()
+    const client = createGitHubClient({
+      cache: cache.implementation,
+      cacheTtlSeconds: 600,
+      fetch: vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200)))
+    })
+
+    await expect(client.assertRepositoryExists('openai/openai-node')).resolves.toBeUndefined()
+
+    expect(cache.setJson).toHaveBeenCalledWith(
+      'github:repo-exists:v1:openai/openai-node',
+      {
+        exists: true
+      },
+      600
+    )
+  })
+
   it('maps 404 responses to a typed repository-not-found error', async () => {
     const client = createGitHubClient({
       fetch: vi.fn<typeof fetch>(() => Promise.resolve(createResponse(404)))
@@ -95,6 +187,97 @@ describe('createGitHubClient', () => {
     })
 
     await expect(client.getLatestReleaseTag('openai/openai-node')).resolves.toBe('v2.0.0')
+  })
+
+  it('uses cached latest-release results without fetching GitHub', async () => {
+    const cache = createCacheStub()
+    cache.values.set('github:latest-release:v1:openai/openai-node', {
+      tag: 'v2.0.0'
+    })
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200, {
+      body: JSON.stringify({
+        tag_name: 'v1.0.0'
+      }),
+      headers: {
+        'content-type': 'application/json'
+      }
+    })))
+    const client = createGitHubClient({
+      cache: cache.implementation,
+      cacheTtlSeconds: 600,
+      fetch: fetchMock
+    })
+
+    await expect(client.getLatestReleaseTag('openai/openai-node')).resolves.toBe('v2.0.0')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('uses cached no-release results without fetching GitHub', async () => {
+    const cache = createCacheStub()
+    cache.values.set('github:latest-release:v1:openai/openai-node', {
+      tag: null
+    })
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200, {
+      body: JSON.stringify({
+        tag_name: 'v1.0.0'
+      }),
+      headers: {
+        'content-type': 'application/json'
+      }
+    })))
+    const client = createGitHubClient({
+      cache: cache.implementation,
+      cacheTtlSeconds: 600,
+      fetch: fetchMock
+    })
+
+    await expect(client.getLatestReleaseTag('openai/openai-node')).resolves.toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('falls back to HTTP when cache reads fail', async () => {
+    const cache = createCacheStub()
+    cache.getJson.mockRejectedValue(new Error('redis down'))
+    const client = createGitHubClient({
+      cache: cache.implementation,
+      cacheTtlSeconds: 600,
+      fetch: vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200, {
+        body: JSON.stringify({
+          tag_name: 'v2.0.0'
+        }),
+        headers: {
+          'content-type': 'application/json'
+        }
+      })))
+    })
+
+    await expect(client.getLatestReleaseTag('openai/openai-node')).resolves.toBe('v2.0.0')
+  })
+
+  it('does not fail GitHub operations when cache writes fail', async () => {
+    const cache = createCacheStub()
+    cache.setJson.mockRejectedValue(new Error('redis down'))
+    const client = createGitHubClient({
+      cache: cache.implementation,
+      cacheTtlSeconds: 600,
+      fetch: vi.fn<typeof fetch>(() => Promise.resolve(createResponse(200, {
+        body: JSON.stringify({
+          tag_name: 'v2.0.0'
+        }),
+        headers: {
+          'content-type': 'application/json'
+        }
+      })))
+    })
+
+    await expect(client.getLatestReleaseTag('openai/openai-node')).resolves.toBe('v2.0.0')
+    expect(cache.setJson).toHaveBeenCalledWith(
+      'github:latest-release:v1:openai/openai-node',
+      {
+        tag: 'v2.0.0'
+      },
+      600
+    )
   })
 
   it('returns null when the repository exists but has no releases yet', async () => {

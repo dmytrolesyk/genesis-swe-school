@@ -16,7 +16,9 @@ export const configSchema = Type.Object({
   SMTP_PORT: Type.Integer({ default: 1025 }),
   SMTP_USER: Type.Optional(Type.String()),
   SMTP_PASS: Type.Optional(Type.String()),
-  SMTP_FROM: Type.String({ default: 'noreply@example.com' })
+  SMTP_FROM: Type.String({ default: 'noreply@example.com' }),
+  REDIS_URL: Type.Optional(Type.String()),
+  GITHUB_CACHE_TTL_SECONDS: Type.Integer({ default: 600 })
 })
 
 export type AppConfig = Static<typeof configSchema>

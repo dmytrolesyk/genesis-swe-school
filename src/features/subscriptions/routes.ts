@@ -43,6 +43,8 @@ const subscriptionsRoutesPlugin: FastifyPluginCallback<SubscriptionRoutesOptions
   done
 ) => {
   const githubClient = options.githubClient ?? createGitHubClient({
+    cache: fastify.cache,
+    cacheTtlSeconds: fastify.config.GITHUB_CACHE_TTL_SECONDS,
     token: fastify.config.GITHUB_TOKEN
   })
   const mailer = options.mailer ?? createMailer({
@@ -95,5 +97,5 @@ const subscriptionsRoutesPlugin: FastifyPluginCallback<SubscriptionRoutesOptions
 
 export default fp(subscriptionsRoutesPlugin, {
   name: 'subscriptions-routes',
-  dependencies: ['config', 'database', 'errors']
+  dependencies: ['cache', 'config', 'database', 'errors']
 })

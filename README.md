@@ -26,6 +26,8 @@ Copy `.env.example` to `.env` before running locally.
 | `API_KEY` | `local-dev-key` | Required `x-api-key` value for protected `/api` routes |
 | `SCAN_INTERVAL_MS` | `60000` | Release scanner polling interval in milliseconds |
 | `GITHUB_TOKEN` | empty | Optional GitHub token for higher API rate limits |
+| `REDIS_URL` | `redis://localhost:6379` | Optional Redis cache URL for GitHub API responses |
+| `GITHUB_CACHE_TTL_SECONDS` | `600` | GitHub API cache TTL in seconds |
 | `SMTP_HOST` | `localhost` | SMTP host for outgoing mail |
 | `SMTP_PORT` | `1025` | SMTP port for outgoing mail |
 | `SMTP_USER` | empty | Optional SMTP username |
@@ -87,6 +89,7 @@ That starts:
 
 - the API on `http://localhost:3000`
 - PostgreSQL on `localhost:5432`
+- Redis on `localhost:6379`
 - Mailpit SMTP on `localhost:1025`
 - Mailpit UI on `http://localhost:8025`
 - Swagger UI on `http://localhost:8081`
@@ -118,6 +121,8 @@ Required app variables:
 | `APP_BASE_URL` | Public Railway app URL, for example `https://sfe-school-production.up.railway.app` |
 | `API_KEY` | Long random secret for protected API requests |
 | `SCAN_INTERVAL_MS` | `60000` |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
+| `GITHUB_CACHE_TTL_SECONDS` | `600` |
 | `SMTP_HOST` | `smtp.resend.com` |
 | `SMTP_PORT` | `587` (kept for config compatibility; Resend production sends over HTTPS) |
 | `SMTP_USER` | `resend` |
@@ -137,6 +142,10 @@ Resend requires a verified sender domain before production email sends. The
 domain in `SMTP_FROM` must match the verified Resend domain. For controlled test
 sends, use `delivered@resend.dev` or a real inbox you control; avoid fake
 addresses at real providers because they bounce and can damage deliverability.
+
+GitHub repository and latest-release lookups are cached in Redis for 10 minutes
+by default. If Redis is unavailable, the app logs a warning and continues with
+uncached GitHub requests.
 
 ## Manual smoke test
 
