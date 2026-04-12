@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin'
 import type {
+  FastifyReply,
   FastifyPluginCallback,
   FastifyPluginOptions
 } from 'fastify'
@@ -14,10 +15,6 @@ import {
 } from '../subscriptions/service.ts'
 import { createMailer } from '../../infra/email/mailer.ts'
 import { AppError } from '../../shared/errors.ts'
-import {
-  renderHomePage,
-  renderTokenResultPage
-} from './templates.ts'
 
 export type WebRoutesOptions = FastifyPluginOptions & {
   service?: SubscriptionService
@@ -30,6 +27,22 @@ type TokenParams = {
 type SubscribeFormBody = {
   email: string
   repo: string
+}
+
+type HomePageStatus = {
+  kind: 'error' | 'idle' | 'success'
+  message: string
+}
+
+type HomePageValues = Partial<{
+  email: string
+  repo: string
+}>
+
+type TokenPageState = 'success' | 'failure'
+
+type ViewData = Record<string, unknown> & {
+  title: string
 }
 
 function readFormField (
@@ -92,6 +105,51 @@ function getErrorPageMessage (error: unknown, fallbackMessage: string): string {
   return error instanceof AppError ? error.message : fallbackMessage
 }
 
+async function renderLayout (
+  reply: FastifyReply,
+  template: string,
+  data: ViewData
+) {
+  const body = await reply.viewAsync(template, data)
+
+  return await reply
+    .type('text/html')
+    .viewAsync('layout.ejs', {
+      body,
+      title: data.title
+    })
+}
+
+async function renderHome (
+  reply: FastifyReply,
+  input: {
+    status: HomePageStatus
+    values: HomePageValues
+  }
+) {
+  return await renderLayout(reply, 'home.ejs', {
+    status: input.status,
+    title: 'Release Notifier XP',
+    values: input.values
+  })
+}
+
+async function renderTokenResult (
+  reply: FastifyReply,
+  input: {
+    heading: string
+    message: string
+    state: TokenPageState
+  }
+) {
+  return await renderLayout(reply, 'token-result.ejs', {
+    heading: input.heading,
+    message: input.message,
+    state: input.state,
+    title: input.heading
+  })
+}
+
 const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
   fastify,
   options,
@@ -100,7 +158,13 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
   const service = options.service ?? createDefaultSubscriptionService(fastify)
 
   fastify.get('/', async (_request, reply) => {
-    return await reply.type('text/html').send(renderHomePage({}))
+    return await renderHome(reply, {
+      status: {
+        kind: 'idle',
+        message: 'Standing by for a repository and inbox.'
+      },
+      values: {}
+    })
   })
 
   fastify.post('/subscribe', async (request, reply) => {
@@ -112,13 +176,13 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
         repo: body.repo
       })
 
-      return await reply.type('text/html').send(renderHomePage({
+      return await renderHome(reply, {
         status: {
           kind: 'success',
           message: 'Inbox armed. Check your email to confirm the subscription.'
         },
         values: body
-      }))
+      })
     } catch (error) {
       const message = getErrorPageMessage(
         error,
@@ -128,7 +192,7 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
       return reply
         .code(getErrorPageStatusCode(error))
         .type('text/html')
-        .send(renderHomePage({
+        .send(await renderHome(reply, {
           status: {
             kind: 'error',
             message
@@ -143,16 +207,16 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
 
     try {
       await service.confirmSubscription(token)
-      return await reply.type('text/html').send(renderTokenResultPage({
+      return await renderTokenResult(reply, {
         heading: 'Subscription confirmed',
         message: 'You are now watching this repository.',
         state: 'success'
-      }))
+      })
     } catch (error) {
       return reply
         .code(getErrorPageStatusCode(error))
         .type('text/html')
-        .send(renderTokenResultPage({
+        .send(await renderTokenResult(reply, {
           heading: 'Confirmation failed',
           message: getErrorPageMessage(error, 'Confirmation failed.'),
           state: 'failure'
@@ -165,16 +229,16 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
 
     try {
       await service.unsubscribe(token)
-      return await reply.type('text/html').send(renderTokenResultPage({
+      return await renderTokenResult(reply, {
         heading: 'Unsubscribed',
         message: 'Release notifications have been turned off.',
         state: 'success'
-      }))
+      })
     } catch (error) {
       return reply
         .code(getErrorPageStatusCode(error))
         .type('text/html')
-        .send(renderTokenResultPage({
+        .send(await renderTokenResult(reply, {
           heading: 'Unsubscribe failed',
           message: getErrorPageMessage(error, 'Unsubscribe failed.'),
           state: 'failure'
