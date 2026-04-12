@@ -45,6 +45,60 @@ describe('public web routes', () => {
     await app.close()
   })
 
+  it('serves the public stylesheet', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/styles/app.css'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/css')
+    await app.close()
+  })
+
+  it('serves the browser script', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/scripts/app.js'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('javascript')
+    await app.close()
+  })
+
+  it('serves the background image', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/images/bg.jpg'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('image/jpeg')
+    await app.close()
+  })
+
   it('submits form fields to the subscription service', async () => {
     const service = createServiceStub()
     const app = buildApp({}, {

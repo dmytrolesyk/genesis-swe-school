@@ -1,5 +1,11 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import fastifyStatic from '@fastify/static'
+import fastifyView from '@fastify/view'
 import Fastify, { type FastifyServerOptions } from 'fastify'
 import fastifyFormbody from '@fastify/formbody'
+import ejs from 'ejs'
 
 import releaseScheduler, {
   type ReleaseSchedulerOptions
@@ -23,6 +29,9 @@ type BuildAppFeatureOptions = {
   web?: WebRoutesOptions
 }
 
+const dirname = path.dirname(fileURLToPath(import.meta.url))
+const rootDir = path.resolve(dirname, '..')
+
 export function buildApp (
   options: FastifyServerOptions = {},
   featureOptions: BuildAppFeatureOptions = {}
@@ -38,6 +47,16 @@ export function buildApp (
   app.register(errorsPlugin)
   app.register(metricsPlugin)
   app.register(fastifyFormbody)
+  app.register(fastifyStatic, {
+    prefix: '/assets/',
+    root: path.join(rootDir, 'static')
+  })
+  app.register(fastifyView, {
+    engine: {
+      ejs
+    },
+    root: path.join(dirname, 'features/web/views')
+  })
   app.register(webRoutes, featureOptions.web ?? {})
   app.register(async function apiRoutes (api) {
     await api.register(apiKeyAuthPlugin)
