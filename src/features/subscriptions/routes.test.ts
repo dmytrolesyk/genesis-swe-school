@@ -73,6 +73,12 @@ function createRepositoryStub () {
           ? Promise.resolve({ id: `${email}:${repoFullName}` })
           : Promise.resolve(null)
       }),
+      findPendingSubscription: vi.fn((email: string, repoFullName: string) => {
+        const pending = pendingSubscriptions.find((subscription) => {
+          return subscription.email === email && subscription.repoFullName === repoFullName
+        })
+        return Promise.resolve(pending ?? null)
+      }),
       findByConfirmToken: vi.fn(() => Promise.resolve(null)),
       findByUnsubscribeToken: vi.fn(() => Promise.resolve(null)),
       getSubscriptionsByEmail: vi.fn(() => Promise.resolve([])),

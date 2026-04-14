@@ -31,6 +31,10 @@ export type SubscriptionRepository = {
     email: string,
     repoFullName: string
   ) => Promise<ActiveSubscription | null>
+  findPendingSubscription: (
+    email: string,
+    repoFullName: string
+  ) => Promise<PendingSubscription | null>
   findByConfirmToken: (token: string) => Promise<ConfirmableSubscription | null>
   findByUnsubscribeToken: (token: string) => Promise<ActiveSubscription | null>
   confirmSubscription: (id: string) => Promise<void>
@@ -45,6 +49,14 @@ type ActiveSubscriptionRow = {
 type ConfirmableSubscriptionRow = {
   confirmed_at: Date | null
   id: string
+}
+
+type PendingSubscriptionRow = {
+  confirm_token: string
+  email: string
+  id: string
+  repo_full_name: string
+  unsubscribe_token: string
 }
 
 type ListedSubscriptionRow = {
@@ -97,6 +109,32 @@ export function createSubscriptionRepository (
       )
 
       return result.rows[0] ?? null
+    },
+    async findPendingSubscription (email, repoFullName) {
+      const result = await pool.query<PendingSubscriptionRow>(
+        `SELECT id, email, repo_full_name, confirm_token, unsubscribe_token
+         FROM subscriptions
+         WHERE email = $1
+           AND repo_full_name = $2
+           AND confirmed_at IS NULL
+           AND unsubscribed_at IS NULL
+         LIMIT 1`,
+        [email, repoFullName]
+      )
+
+      if (result.rows.length === 0) {
+        return null
+      }
+
+      const row = result.rows[0]
+
+      return {
+        confirmToken: row.confirm_token,
+        email: row.email,
+        id: row.id,
+        repoFullName: row.repo_full_name,
+        unsubscribeToken: row.unsubscribe_token
+      }
     },
     async findByConfirmToken (token) {
       const result = await pool.query<ConfirmableSubscriptionRow>(
