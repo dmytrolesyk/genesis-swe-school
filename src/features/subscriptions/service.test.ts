@@ -27,6 +27,7 @@ function createRepositoryMock (): SubscriptionRepository {
     confirmSubscription: createResolvedVoidMock(),
     ensureRepository: createResolvedVoidMock(),
     findActiveSubscription: vi.fn(() => Promise.resolve(null)),
+    findPendingSubscription: vi.fn(() => Promise.resolve(null)),
     findByConfirmToken: vi.fn(() => Promise.resolve(null)),
     findByUnsubscribeToken: vi.fn(() => Promise.resolve(null)),
     getSubscriptionsByEmail: vi.fn(() => Promise.resolve([])),
@@ -128,6 +129,46 @@ describe('createSubscriptionService', () => {
       unsubscribeUrl: 'http://localhost:3000/unsubscribe/unsubscribe-token'
     })
     expect(metrics.subscriptionsCreated).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-sends confirmation emails when a pending subscription already exists', async () => {
+    const repository = createRepositoryMock()
+    repository.findPendingSubscription = vi.fn(() => Promise.resolve({
+      confirmToken: 'confirm-token',
+      email: 'user@example.com',
+      id: 'subscription-id',
+      repoFullName: 'openai/openai-node',
+      unsubscribeToken: 'unsubscribe-token'
+    }))
+    const githubClient = createGitHubClientStub()
+    const sendConfirmationEmail = createResolvedVoidMock()
+    const metrics = createSubscriptionMetricsMock()
+
+    const service = createSubscriptionService({
+      repository,
+      githubClient,
+      mailer: {
+        sendConfirmationEmail,
+        sendReleaseEmail: createResolvedVoidMock()
+      },
+      metrics,
+      appBaseUrl: 'http://localhost:3000',
+      generateToken: vi.fn(() => 'unused-token')
+    })
+
+    await service.subscribe({
+      email: 'user@example.com',
+      repo: 'openai/openai-node'
+    })
+
+    expect(repository.insertPendingSubscription).not.toHaveBeenCalled()
+    expect(sendConfirmationEmail).toHaveBeenCalledWith({
+      confirmUrl: 'http://localhost:3000/confirm/confirm-token',
+      email: 'user@example.com',
+      repoFullName: 'openai/openai-node',
+      unsubscribeUrl: 'http://localhost:3000/unsubscribe/unsubscribe-token'
+    })
+    expect(metrics.subscriptionsCreated).not.toHaveBeenCalled()
   })
 
   it('surfaces GitHub not-found errors', async () => {

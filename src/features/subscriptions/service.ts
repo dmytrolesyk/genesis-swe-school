@@ -100,20 +100,35 @@ export function createSubscriptionService (
         throw new DuplicateSubscriptionError(input.email, parsedRepo.repoFullName)
       }
 
+      const pendingSubscription = await options.repository.findPendingSubscription(
+        input.email,
+        parsedRepo.repoFullName
+      )
+
+      if (pendingSubscription !== null) {
+        await options.mailer.sendConfirmationEmail({
+          confirmUrl: `${options.appBaseUrl}/confirm/${pendingSubscription.confirmToken}`,
+          email: pendingSubscription.email,
+          repoFullName: pendingSubscription.repoFullName,
+          unsubscribeUrl: `${options.appBaseUrl}/unsubscribe/${pendingSubscription.unsubscribeToken}`
+        })
+        return
+      }
+
       await options.repository.ensureRepository(parsedRepo.repoFullName)
 
-      const pendingSubscription = buildPendingSubscription(
+      const newPendingSubscription = buildPendingSubscription(
         input,
         parsedRepo.repoFullName,
         generateToken
       )
 
-      await options.repository.insertPendingSubscription(pendingSubscription)
+      await options.repository.insertPendingSubscription(newPendingSubscription)
       await options.mailer.sendConfirmationEmail({
-        confirmUrl: `${options.appBaseUrl}/confirm/${pendingSubscription.confirmToken}`,
-        email: pendingSubscription.email,
-        repoFullName: pendingSubscription.repoFullName,
-        unsubscribeUrl: `${options.appBaseUrl}/unsubscribe/${pendingSubscription.unsubscribeToken}`
+        confirmUrl: `${options.appBaseUrl}/confirm/${newPendingSubscription.confirmToken}`,
+        email: newPendingSubscription.email,
+        repoFullName: newPendingSubscription.repoFullName,
+        unsubscribeUrl: `${options.appBaseUrl}/unsubscribe/${newPendingSubscription.unsubscribeToken}`
       })
       options.metrics?.subscriptionsCreated()
     },
