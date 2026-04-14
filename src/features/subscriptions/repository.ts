@@ -90,6 +90,7 @@ export function createSubscriptionRepository (
          FROM subscriptions
          WHERE email = $1
            AND repo_full_name = $2
+           AND confirmed_at IS NOT NULL
            AND unsubscribed_at IS NULL
          LIMIT 1`,
         [email, repoFullName]
