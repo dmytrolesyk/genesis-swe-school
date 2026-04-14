@@ -113,9 +113,17 @@ describe('public web routes', () => {
     await app.close()
   })
 
-  it('returns subscriptions by email without an API key for the start menu', async () => {
+  it('returns confirmed subscriptions by email without an API key for the start menu', async () => {
     const service = createServiceStub()
-    service.getSubscriptionsByEmail = vi.fn(() => Promise.resolve(listedSubscriptions))
+    service.getSubscriptionsByEmail = vi.fn(() => Promise.resolve([
+      ...listedSubscriptions,
+      {
+        confirmed: false,
+        email: 'user@example.com',
+        last_seen_tag: null,
+        repo: 'forrestchang/andrej-karpathy-skills'
+      }
+    ]))
     const app = buildApp({}, {
       web: {
         service

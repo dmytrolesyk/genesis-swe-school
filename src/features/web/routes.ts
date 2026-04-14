@@ -201,8 +201,11 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
     }
 
     const subscriptions = await service.getSubscriptionsByEmail(email)
+    const confirmedSubscriptions = subscriptions.filter((subscription) => {
+      return subscription.confirmed
+    })
 
-    return await reply.code(200).send(subscriptions)
+    return await reply.code(200).send(confirmedSubscriptions)
   })
 
   fastify.post('/subscribe', async (request, reply) => {
