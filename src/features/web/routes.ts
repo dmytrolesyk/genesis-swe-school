@@ -49,6 +49,14 @@ type ViewData = Record<string, unknown> & {
   title: string
 }
 
+type LayoutOptions = {
+  bodyClass?: string
+  showStartMenu?: boolean
+  showTaskbar?: boolean
+}
+
+type HomePageVariant = 'default' | 'embed'
+
 function readFormField (
   body: Record<string, unknown>,
   fieldName: keyof SubscribeFormBody
@@ -130,7 +138,8 @@ function getErrorPageMessage (error: unknown, fallbackMessage: string): string {
 async function renderLayout (
   reply: FastifyReply,
   template: string,
-  data: ViewData
+  data: ViewData,
+  options: LayoutOptions = {}
 ) {
   const body = await reply.viewAsync(template, data)
 
@@ -138,8 +147,31 @@ async function renderLayout (
     .type('text/html')
     .viewAsync('layout.ejs', {
       body,
+      bodyClass: options.bodyClass ?? '',
+      showStartMenu: options.showStartMenu ?? true,
+      showTaskbar: options.showTaskbar ?? true,
       title: data.title
     })
+}
+
+function getHomePageView (variant: HomePageVariant) {
+  if (variant === 'embed') {
+    return {
+      formAction: '/embed/subscribe',
+      layout: {
+        bodyClass: 'embed-page',
+        showStartMenu: false,
+        showTaskbar: false
+      },
+      showQuizShortcut: false
+    }
+  }
+
+  return {
+    formAction: '/subscribe',
+    layout: {},
+    showQuizShortcut: true
+  }
 }
 
 async function renderHome (
@@ -147,13 +179,58 @@ async function renderHome (
   input: {
     status: HomePageStatus
     values: HomePageValues
+    variant?: HomePageVariant
   }
 ) {
+  const view = getHomePageView(input.variant ?? 'default')
+
   return await renderLayout(reply, 'home.ejs', {
+    formAction: view.formAction,
+    showQuizShortcut: view.showQuizShortcut,
     status: input.status,
     title: 'Release Notifier XP',
     values: input.values
-  })
+  }, view.layout)
+}
+
+async function handleSubscribeForm (
+  reply: FastifyReply,
+  service: SubscriptionService,
+  body: SubscribeFormBody,
+  variant: HomePageVariant
+) {
+  try {
+    await service.subscribe({
+      email: body.email,
+      repo: body.repo
+    })
+
+    return await renderHome(reply, {
+      status: {
+        kind: 'success',
+        message: 'Inbox armed. Check your email to confirm the subscription.'
+      },
+      values: body,
+      variant
+    })
+  } catch (error) {
+    const message = getErrorPageMessage(
+      error,
+      'Something went sideways while dialing GitHub.'
+    )
+
+    return reply
+      .code(getErrorPageStatusCode(error))
+      .type('text/html')
+      .send(await renderHome(reply, {
+        status: {
+          kind: 'error',
+          message
+        },
+        values: body,
+        variant
+      }))
+  }
 }
 
 async function renderQuiz (reply: FastifyReply) {
@@ -206,6 +283,17 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
     })
   })
 
+  fastify.get('/embed/subscribe', async (_request, reply) => {
+    return await renderHome(reply, {
+      status: {
+        kind: 'idle',
+        message: 'Standing by for a repository and inbox.'
+      },
+      values: {},
+      variant: 'embed'
+    })
+  })
+
   fastify.get('/subscriptions', async (request, reply) => {
     const email = readEmailQuery(request.query)
 
@@ -228,36 +316,13 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
   fastify.post('/subscribe', async (request, reply) => {
     const body = readSubscribeFormBody(request.body)
 
-    try {
-      await service.subscribe({
-        email: body.email,
-        repo: body.repo
-      })
+    return await handleSubscribeForm(reply, service, body, 'default')
+  })
 
-      return await renderHome(reply, {
-        status: {
-          kind: 'success',
-          message: 'Inbox armed. Check your email to confirm the subscription.'
-        },
-        values: body
-      })
-    } catch (error) {
-      const message = getErrorPageMessage(
-        error,
-        'Something went sideways while dialing GitHub.'
-      )
+  fastify.post('/embed/subscribe', async (request, reply) => {
+    const body = readSubscribeFormBody(request.body)
 
-      return reply
-        .code(getErrorPageStatusCode(error))
-        .type('text/html')
-        .send(await renderHome(reply, {
-          status: {
-            kind: 'error',
-            message
-          },
-          values: body
-        }))
-    }
+    return await handleSubscribeForm(reply, service, body, 'embed')
   })
 
   fastify.get('/confirm/:token', async (request, reply) => {

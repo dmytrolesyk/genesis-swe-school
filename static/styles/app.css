@@ -31,6 +31,12 @@ body[data-background-dim="strong"] {
     url("/assets/images/bg.jpg");
 }
 
+body.embed-page,
+body.embed-page[data-background-dim="strong"] {
+  min-height: 0;
+  background: transparent;
+}
+
 button,
 input,
 select {
@@ -54,6 +60,12 @@ a:focus-visible {
   min-height: 100vh;
   padding: 32px 16px calc(var(--taskbar-height) + 28px);
   place-items: center;
+}
+
+.embed-page .desktop {
+  min-height: 0;
+  padding: 0;
+  place-items: stretch;
 }
 
 .window {

@@ -28,6 +28,30 @@ function createServiceStub (): SubscriptionService {
 }
 
 describe('public web routes', () => {
+  it('renders an embeddable subscription widget without the XP chrome', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/embed/subscribe'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('class="embed-page"')
+    expect(response.body).not.toContain('id="xp-taskbar"')
+    expect(response.body).not.toContain('id="xp-start-menu"')
+    expect(response.body).toContain('action="/embed/subscribe"')
+    expect(response.body).not.toContain('Interview Prep Arcade')
+    await app.close()
+  })
+
   it('renders the subscription home page without an API key', async () => {
     const service = createServiceStub()
     const app = buildApp({}, {
@@ -181,6 +205,37 @@ describe('public web routes', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('Inbox armed. Check your email to confirm the subscription.')
+    expect(service.subscribe).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      repo: 'nodejs/node'
+    })
+    await app.close()
+  })
+
+  it('keeps the embeddable widget chrome-free after form submission', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded'
+      },
+      method: 'POST',
+      payload: 'email=user%40example.com&repo=nodejs%2Fnode',
+      url: '/embed/subscribe'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('class="embed-page"')
+    expect(response.body).not.toContain('id="xp-taskbar"')
+    expect(response.body).not.toContain('id="xp-start-menu"')
     expect(response.body).toContain('Inbox armed. Check your email to confirm the subscription.')
     expect(service.subscribe).toHaveBeenCalledWith({
       email: 'user@example.com',
