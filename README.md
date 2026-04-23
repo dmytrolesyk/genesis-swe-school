@@ -10,6 +10,7 @@ A Fastify monolith that lets users subscribe to GitHub release notifications by 
 
 - Fastify serves the REST API under `/api`.
 - Fastify also serves the public subscription page at `/`.
+- `GET /quiz` serves an interactive interview-prep arcade with 30 codebase- and course-grounded questions, inline SVG diagrams, and a gamified retry loop. This route is public and outside the Swagger contract.
 - PostgreSQL stores repositories, subscriptions, release state, and applied migrations.
 - SQL migrations run automatically on service startup.
 - Local development sends confirmation and release emails through Mailpit SMTP.
@@ -66,6 +67,7 @@ instead of opening an SMTP connection. Other hosts keep using SMTP.
    ```
 
 The public subscription page is available at `http://localhost:3000/`.
+The interview prep quiz is available at `http://localhost:3000/quiz`.
 The protected API listens under `http://localhost:3000/api`, PostgreSQL is
 exposed on `localhost:5432`, and Mailpit is available at
 `http://localhost:8025`.
@@ -117,7 +119,7 @@ docker compose down -v
 The app can run as one Railway service with a managed Postgres service.
 The current production project uses the public app origin
 `https://swe-school-production.up.railway.app`.
-The same origin serves the public page at `/`, public confirmation and
+The same origin serves the public page at `/`, the quiz at `/quiz`, public confirmation and
 unsubscribe links, protected `/api/*` routes, and protected `/metrics`.
 
 Required app variables:
@@ -175,6 +177,12 @@ Open the public page:
 
 ```bash
 curl 'http://localhost:3000/'
+```
+
+Open the interview prep quiz:
+
+```bash
+curl 'http://localhost:3000/quiz'
 ```
 
 Create a subscription through the public form route:

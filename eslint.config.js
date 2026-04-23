@@ -18,5 +18,20 @@ export default [
   ...neostandard({
     ts: true
   }),
-  ...typedStrictConfigs
+  ...typedStrictConfigs,
+  {
+    files: ['static/scripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        alert: 'readonly',
+        confirm: 'readonly',
+        console: 'readonly',
+        document: 'readonly',
+        localStorage: 'readonly',
+        requestAnimationFrame: 'readonly',
+        setTimeout: 'readonly',
+        window: 'readonly'
+      }
+    }
+  }
 ]

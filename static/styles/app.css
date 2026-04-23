@@ -31,6 +31,12 @@ body[data-background-dim="strong"] {
     url("/assets/images/bg.jpg");
 }
 
+body.embed-page,
+body.embed-page[data-background-dim="strong"] {
+  min-height: 0;
+  background: transparent;
+}
+
 button,
 input,
 select {
@@ -54,6 +60,12 @@ a:focus-visible {
   min-height: 100vh;
   padding: 32px 16px calc(var(--taskbar-height) + 28px);
   place-items: center;
+}
+
+.embed-page .desktop {
+  min-height: 0;
+  padding: 0;
+  place-items: stretch;
 }
 
 .window {
@@ -179,6 +191,31 @@ button {
 
 .status[data-kind="error"] {
   border-color: #9f2e1a;
+}
+
+.quiz-shortcut {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.quiz-shortcut a {
+  display: inline-block;
+  padding: 9px 16px;
+  border: 1px solid #4b4b4b;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #fffef6, #d7d2bc);
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.quiz-shortcut a:hover {
+  background: linear-gradient(180deg, #fff, #e2ddc6);
+}
+
+.quiz-shortcut a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .token-actions {

@@ -28,6 +28,30 @@ function createServiceStub (): SubscriptionService {
 }
 
 describe('public web routes', () => {
+  it('renders an embeddable subscription widget without the XP chrome', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/embed/subscribe'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('class="embed-page"')
+    expect(response.body).not.toContain('id="xp-taskbar"')
+    expect(response.body).not.toContain('id="xp-start-menu"')
+    expect(response.body).toContain('action="/embed/subscribe"')
+    expect(response.body).not.toContain('Interview Prep Arcade')
+    await app.close()
+  })
+
   it('renders the subscription home page without an API key', async () => {
     const service = createServiceStub()
     const app = buildApp({}, {
@@ -189,6 +213,37 @@ describe('public web routes', () => {
     await app.close()
   })
 
+  it('keeps the embeddable widget chrome-free after form submission', async () => {
+    const service = createServiceStub()
+    const app = buildApp({}, {
+      web: {
+        service
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded'
+      },
+      method: 'POST',
+      payload: 'email=user%40example.com&repo=nodejs%2Fnode',
+      url: '/embed/subscribe'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('class="embed-page"')
+    expect(response.body).not.toContain('id="xp-taskbar"')
+    expect(response.body).not.toContain('id="xp-start-menu"')
+    expect(response.body).toContain('Inbox armed. Check your email to confirm the subscription.')
+    expect(service.subscribe).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      repo: 'nodejs/node'
+    })
+    await app.close()
+  })
+
   it('renders an HTML error state when subscription fails', async () => {
     const service = createServiceStub()
     service.subscribe = vi.fn(() => Promise.reject(
@@ -237,6 +292,64 @@ describe('public web routes', () => {
     expect(response.headers['content-type']).toContain('text/html')
     expect(response.body).toContain('Subscription confirmed')
     expect(service.confirmSubscription).toHaveBeenCalledWith(validToken)
+    await app.close()
+  })
+
+  it('renders the interview prep quiz page without an API key', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/quiz'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('Interview Prep Arcade')
+    expect(response.body).toContain('data-quiz-root')
+    expect(response.body).toContain('href="/assets/styles/quiz.css"')
+    expect(response.body).toContain('src="/assets/scripts/quiz.js"')
+    await app.close()
+  })
+
+  it('serves the quiz stylesheet', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/styles/quiz.css'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/css')
+    await app.close()
+  })
+
+  it('serves the quiz runtime script', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/scripts/quiz.js'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('javascript')
     await app.close()
   })
 

@@ -7,10 +7,11 @@
   <link rel="stylesheet" href="/assets/styles/app.css">
   <script type="module" src="/assets/scripts/app.js"></script>
 </head>
-<body>
+<body<% if (bodyClass !== '') { %> class="<%= bodyClass %>"<% } %>>
   <main class="desktop">
     <%- body %>
   </main>
+  <% if (showStartMenu) { %>
   <aside class="start-menu" id="xp-start-menu" hidden>
     <div class="start-menu__header">
       <strong>Release Notifier XP</strong>
@@ -77,11 +78,14 @@
       <p>Unsubscribe links arrive by email. This taskbar stores only local browser preferences and a saved email.</p>
     </section>
   </aside>
+  <% } %>
+  <% if (showTaskbar) { %>
   <footer class="taskbar" id="xp-taskbar">
     <button class="start-button" type="button" aria-controls="xp-start-menu" aria-expanded="false" data-start-button>Start</button>
     <div class="taskbar__tray">
       <span data-clock>--:--</span>
     </div>
   </footer>
+  <% } %>
 </body>
 </html>
