@@ -240,6 +240,64 @@ describe('public web routes', () => {
     await app.close()
   })
 
+  it('renders the interview prep quiz page without an API key', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/quiz'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain('Interview Prep Arcade')
+    expect(response.body).toContain('data-quiz-root')
+    expect(response.body).toContain('href="/assets/styles/quiz.css"')
+    expect(response.body).toContain('src="/assets/scripts/quiz.js"')
+    await app.close()
+  })
+
+  it('serves the quiz stylesheet', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/styles/quiz.css'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/css')
+    await app.close()
+  })
+
+  it('serves the quiz runtime script', async () => {
+    const app = buildApp({}, {
+      web: {
+        service: createServiceStub()
+      }
+    })
+    await app.ready()
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/assets/scripts/quiz.js'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('javascript')
+    await app.close()
+  })
+
   it('unsubscribes without an API key', async () => {
     const service = createServiceStub()
     const app = buildApp({}, {

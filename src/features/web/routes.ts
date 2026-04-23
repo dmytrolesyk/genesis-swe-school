@@ -156,6 +156,19 @@ async function renderHome (
   })
 }
 
+async function renderQuiz (reply: FastifyReply) {
+  const body = await reply.viewAsync('quiz.ejs', {
+    title: 'Interview Prep Arcade'
+  })
+
+  return await reply
+    .type('text/html')
+    .viewAsync('quiz-layout.ejs', {
+      body,
+      title: 'Interview Prep Arcade'
+    })
+}
+
 async function renderTokenResult (
   reply: FastifyReply,
   input: {
@@ -178,6 +191,10 @@ const webRoutesPlugin: FastifyPluginCallback<WebRoutesOptions> = (
   done
 ) => {
   const service = options.service ?? createDefaultSubscriptionService(fastify)
+
+  fastify.get('/quiz', async (_request, reply) => {
+    return await renderQuiz(reply)
+  })
 
   fastify.get('/', async (_request, reply) => {
     return await renderHome(reply, {
