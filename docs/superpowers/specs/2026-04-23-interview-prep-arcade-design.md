@@ -16,15 +16,16 @@ This design turns the user's existing project into a focused interview-prep arti
 
 The user explicitly wants:
 
-- a single standalone HTML file
+- an interactive quiz-prep experience that can be opened easily on desktop and phone
 - strong emphasis on likely technical questions
 - quiz-based interaction instead of passive reading
 - gamified presentation with diagrams and meme energy
 - mobile-friendly behavior so it works on a phone before sleep
+- deployment through the existing app at `/quiz`
 
 ## Goals
 
-- Produce one standalone HTML file that opens directly in a browser with no build step and no server requirement.
+- Produce a public `/quiz` experience inside the existing Fastify app.
 - Make the experience interactive enough to keep a tired user engaged through active recall.
 - Focus primarily on likely technical questions the interviewer may ask, based on the course description, assignment, and implemented code.
 - Keep explanations short, interview-oriented, and easy to memorize.
@@ -35,7 +36,7 @@ The user explicitly wants:
 
 ## Non-Goals
 
-- No integration into the existing Fastify app in this iteration.
+- No new protected API surface or Swagger contract changes.
 - No external APIs, runtime fetches, or backend dependencies.
 - No frontend build tooling, bundler, framework, or package installation.
 - No large essay-style theory reference covering every backend topic in depth.
@@ -44,21 +45,23 @@ The user explicitly wants:
 
 ## Recommended Approach
 
-Create a single file named `interview-prep-arcade.html` with:
+Add a public `GET /quiz` route to the existing app and render the experience with the same server-rendered web stack already used in the repository.
 
-- semantic HTML structure
-- inline CSS
-- inline JavaScript
-- inline SVG diagrams and decorative visuals
-- a small in-file question dataset
+Suggested shape:
+
+- one new EJS view for the quiz page
+- one dedicated static stylesheet
+- one dedicated static JavaScript file
+- inline or bundled same-origin SVG diagrams
+- a structured in-browser question dataset shipped with the page
 
 This approach is the best fit because it is:
 
-- zero friction for tonight
+- available from the deployed app on the phone
 - mobile-safe
-- offline-friendly
+- consistent with the existing app patterns
 - easy to share or reopen later
-- independent of the existing application runtime
+- deployable without creating a second app
 
 ## Content Source And Question Strategy
 
@@ -176,11 +179,19 @@ Each question should reveal feedback immediately after submission.
 Required feedback blocks:
 
 - result state: correct or not quite
+- correct answer reveal when the user misses
 - short explanation: one compact paragraph
 - interview-ready answer: a 2-4 line answer the user could say aloud
 - deeper follow-up: one optional extra sentence for a stronger answer
 
 The feedback must teach one sharp point, not dump a textbook.
+
+Wrong-answer behavior:
+
+- when the user answers incorrectly, reveal the correct answer or answers immediately
+- show the short explanation and interview-ready phrasing
+- offer a `Retry` action on the same question
+- keep the question marked as missed for weak-spot tracking even if the retry later succeeds
 
 ## Game Mechanics
 
@@ -194,6 +205,11 @@ Core mechanics:
 - topic badges unlocked by category mastery
 - boss fights inserted after a small set of regular questions
 - weak-spots queue that stores missed questions for replay
+
+Scoring rule:
+
+- the first wrong answer on a question breaks the streak and records a miss
+- retrying is for learning and recovery, not for pretending the miss never happened
 
 Optional flavor that should be included if it stays lightweight:
 
@@ -244,7 +260,7 @@ Visual ingredients:
 - fake badges, stickers, and meter widgets
 - inline SVG diagrams and decorative icons
 
-Because this is a single standalone file, “memes and images” should be implemented primarily as:
+Because this route should remain lightweight and reliable, “memes and images” should be implemented primarily as:
 
 - inline SVG stickers
 - fake achievement cards
@@ -253,9 +269,26 @@ Because this is a single standalone file, “memes and images” should be imple
 
 Do not depend on remote images, since they reduce reliability and may fail on mobile or offline.
 
+## Runtime Surface
+
+Add one new public route:
+
+```text
+GET /quiz
+```
+
+Behavior:
+
+- returns the quiz arcade HTML page
+- requires no API key
+- does not call protected `/api/*` routes from the browser
+- works as a read-only prep experience with all quiz content shipped in the page assets
+
+This route is intentionally outside the Swagger-documented API surface. It is a public web page, not a contract-bearing API endpoint.
+
 ## Page Structure
 
-The standalone file should contain these major sections.
+The `/quiz` page should contain these major sections.
 
 ### 1. Intro Screen
 
@@ -415,15 +448,17 @@ State transitions:
 1. user starts a run
 2. user answers question
 3. page evaluates correctness
-4. page reveals short feedback and spoken-answer guidance
-5. page awards XP and updates streak
-6. page advances to the next question or boss fight
-7. page occasionally pauses for a diagram pit stop
-8. page ends in results + cram mode
+4. if wrong, page reveals the correct answer, short explanation, and retry action
+5. if correct, or once the user retries successfully, page reveals spoken-answer guidance and continue action
+6. page awards XP only on a successful answer and updates streak according to the first-attempt result
+7. page advances to the next question or boss fight
+8. page occasionally pauses for a diagram pit stop
+9. page ends in results + cram mode
 
 Important UX rule:
 
 - do not auto-advance immediately after answer selection; the user should have a clear moment to read feedback
+- after a wrong answer, the retry flow should be obvious and lightweight rather than punitive
 
 ## Accessibility
 
@@ -441,7 +476,7 @@ Required considerations:
 
 ## Error Handling And Robustness
 
-Because the file is standalone, the main failure modes are local and should be handled gently.
+Because the page is served by the app but runs fully client-side after load, the main failure modes are still local and should be handled gently.
 
 Expected cases:
 
@@ -449,28 +484,33 @@ Expected cases:
 - unavailable `localStorage` should not break the quiz
 - restarting the run should fully reset local progress after confirmation
 - narrow viewports should not break layout or hide essential actions
+- a missing or broken quiz asset should fail clearly in development and be easy to catch with route-level tests
 
 ## Acceptance Criteria
 
-- Opening `interview-prep-arcade.html` directly in the browser works without a server.
+- Opening `/quiz` locally and in the deployed app loads the quiz page successfully.
 - The page is readable and usable on both desktop and mobile.
 - The quiz includes approximately 30 codebase- and course-grounded questions.
 - At least four diagrams are included and readable on mobile.
 - The page supports radio, checkbox, and ordered-flow question types.
 - The page tracks XP, streak, progress, and missed questions.
+- The page reveals the correct answer and a short useful explanation after wrong answers.
 - The page provides short interview-ready explanations after each answer.
+- The page allows retrying the same question after a miss.
 - The page offers a retry flow for missed questions.
 - The page ends with a compact cram section for weak topics.
 - The page contains playful visual and textual flavor without requiring external assets.
+- The new route does not change the Swagger contract and does not require an API key.
 
 ## Implementation Notes
 
-- Keep everything in one HTML file for this iteration.
+- Implement this as part of the existing Fastify web surface, not as a separate standalone file.
 - Prefer a small structured question dataset in JavaScript rather than scattering content through the DOM.
 - Keep explanations short enough for tired late-night review.
 - Build mobile layout first, then scale up for desktop.
-- Use inline SVG for both diagrams and decorative “achievement” art.
-- Avoid external fonts, frameworks, and image URLs.
+- Use inline SVG or same-origin assets for diagrams and decorative “achievement” art.
+- Avoid external fonts, frameworks, and third-party image URLs.
+- Follow the existing view/static-asset patterns already used by the current web UI.
 
 ## Risks And Mitigations
 
